@@ -80,14 +80,3 @@ def read_sample(samp):
     samp_1 = samp.split(" <||> ")
     samp_2 = samp_1[1].split(" <++> ")
     return (samp_1[0], samp_2, int(samp_1[2]), float(samp_1[3]), samp_1[4], samp_1[5] == "popular", samp_1[6], samp_1[7], samp_1[8])
-
-
-def add_argument():
-    _parser = argparse.ArgumentParser(description='prog_diff')
-    _parser.add_argument('-g', '--grammar', default="python-grammar.txt",
-                        help='input Python grammar file (default: ./python-gramamr.txt)')
-    _parser.add_argument('--data_dir', default=".",
-                        help='input data directory (default: .)')
-    _parser.add_argument('--data_file',
-                        help='input data file (default: None)')
-    return _parser.parse_args()
