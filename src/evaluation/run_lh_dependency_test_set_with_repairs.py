@@ -60,24 +60,28 @@ def get_type_predictions(masked_types, all_prompts, filename, args):
         with open(cache_file, "r", encoding="utf-8") as cf:
             cache = json.loads(cf.read())
 
-    if args.print_logs:
-        print("-" * 42)
+    print("-" * 42)
     for mtype, prompt in zip(masked_types, all_prompts):
-        if args.print_logs:
-            print(f"-> {mtype}")
+        print(f"{mtype}")
         func = mtype.split()[1].strip()
         key = f"{filename}--{func}"
         if args.use_cache and key in cache and cache[key] != []:
+            if args.print_logs:
+                print("-> Using cache...")
             prog_repairs = cache[key]
         else:
+            if args.print_logs:
+                print("-> LLM generation...")
             prog_repairs = get_starcoder_code_suggestions(prompt, args.total_repairs)
             prog_repairs = list(set(prog_repairs))
-            if args.print_logs:
-                print(f"{len(prog_repairs)} unique predicted types")
+        print(f"-> {len(prog_repairs)} unique predicted types")
         if args.update_cache or args.create_cache_only:
             cache[key] = prog_repairs
 
     if args.update_cache or args.create_cache_only:
+        if args.print_logs:
+            print("+" * 42)
+            print(f"Saving cache to local file ({cache_file})...")
         with open(cache_file, "w", encoding="utf-8") as cf:
             cf.write(json.dumps(cache, indent = 4))
 
@@ -120,6 +124,7 @@ def run_tests(path, args):
         masks_per_exer[target_file] = len(masked_func_types)
         for masked_type in masked_func_types:
             func = masked_type.split()[1].strip()
+            print("=" * 42)
             print(f"Solving {target_file} ({func})...")
             key = f"{target_file}--{func}"
             solved = False
@@ -132,12 +137,11 @@ def run_tests(path, args):
                     if args.print_logs:
                         print("-" * 42)
                         print(f"{{-@ {func} :: {type_prediction} @-}}")
-                        print("-" * 42)
 
                     # NOTE: Just a random check, cause LH crashes for too long types
                     if len(type_prediction) > len(ground_truths[func]) + 32:
                         if args.print_logs:
-                            print("UNSAFE")
+                            print("...UNSAFE")
                         continue
 
                     llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {type_prediction} @-}}", fix_prog, 1)
@@ -151,17 +155,21 @@ def run_tests(path, args):
                     correct_llm_types_per_exer[target_file] += 1
                     solved = True
                     if args.print_logs:
-                        print("SAFE")
+                        print("...SAFE")
                     break
                 if args.print_logs:
-                    print("UNSAFE")
+                    print("...UNSAFE")
+            print("-" * 42)
+            if args.print_logs:
+                print("-" * 42)
             if solved:
-                print("--> SAFE")
+                print(f"{func} --> SAFE")
             else:
-                print("--> UNSAFE")
+                print(f"{func} --> UNSAFE")
 
         if correct_llm_types_per_exer[target_file] == masks_per_exer[target_file]:
             fixed_progs += 1
+        print("=" * 42)
         print(f"{correct_llm_types_per_exer[target_file]} / {masks_per_exer[target_file]} types predicted correctly")
 
     print("=" * 42)

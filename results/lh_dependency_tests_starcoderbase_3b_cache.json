@@ -1,0 +1,247 @@
+{
+    "Ex10.hs--emp": [
+        "{v:Map k v | true}",
+        "{v:Map {v:k | v = k} v}",
+        "{v:Map k v | Empty v}",
+        "{v:Map {v:k | v = k} v | k = Tip}",
+        "{v:Map {v:k | v < x} v | v == emp}",
+        "{v:Map k v | Set_emp v}",
+        "{v:Map k v | v =:= Tip }"
+    ],
+    "Ex10.hs--eval": [
+        "Env -> Expr -> Val",
+        "Env -> Val -> Expr",
+        "_ -> _ -> _",
+        "_ -> {v:Expr | eval v i}",
+        "_ -> {v:Expr | Subset (free v) (keys G)}",
+        "Env -> Expr -> Expr"
+    ],
+    "Ex10.hs--topEval": [
+        "Env -> ClosedExpr G",
+        "Expr -> Expr",
+        "Env -> {v:Expr | Subset (free v) (keys Env)}",
+        "Map Var Val -> ClosedExpr G",
+        "{v:Expr | val v} -> Env -> {v:Expr | val v}",
+        "{v:Expr | Subset (free v) (keys G)} -> Val",
+        "<mask_3>",
+        "_ -> _",
+        "Env -> Expr"
+    ],
+    "Ex10.hs--lemNotMem": [
+        "<mask_4>",
+        "_ -> <mask_4>",
+        "k -> Map k v -> Bool",
+        "_ -> _ -> TRUE",
+        "_ -> _ -> _"
+    ],
+    "Ex10.hs--mem": [
+        "<mask_5>",
+        "_ -> _ -> TRUE",
+        "_ -> <mask_5>"
+    ],
+    "Ex10.hs--get": [
+        "<mask_6>"
+    ],
+    "Ex10.hs--set": [
+        "_ -> _ -> _",
+        "<mask_7>"
+    ],
+    "Ex10.hs--evalAny": [
+        "_ -> <mask_8>",
+        "<mask_8>",
+        "_ -> _ -> <ok>",
+        "_ -> _ -> _",
+        "_ -> (x:Var | val x) -> <mask_8>",
+        "_ -> _ -> _ -> _"
+    ],
+    "Ex10.hs--fresh": [
+        "_ -> Int",
+        "[] -> k",
+        "_ -> {v:Int | v >= 0}",
+        "_ -> _",
+        "<mask_9>",
+        "_ -> <mask_9>",
+        "{v:_ | true} -> _",
+        "{v:[Int] | v /= [] } -> {v:Int | v < 0}"
+    ],
+    "Ex10.hs--lemNotElem": [
+        "a -> [a] -> <true>",
+        "a -> [a] -> <not> Elem a",
+        "a -> [a] -> TRUE",
+        "a -> [a] -> <none>",
+        "a -> [a] -> BOOL",
+        "a -> [a] -> Bool",
+        "a -> [a] -> {v:Bool | v }"
+    ],
+    "Ex11.hs--peekByteOff": [
+        "p:Ptr a -> off:Nat -> {v:Bool | 0 < plen v}",
+        "p:Ptr a -> off:Nat -> a",
+        "Ptr a -> off:Nat -> v:{PtrN b {plen p - off} | 0 < plen v}",
+        "Ptr a -> off:Nat -> IO a",
+        "Ptr a -> Int -> IO a",
+        "p:Ptr a -> off:Nat -> OkPtr b",
+        "p:Ptr a -> off:Nat -> v:{PtrN b {plen p - off} | 0 < plen v}",
+        "{v:_ | bLen v = n} -> i:{Nat | 0 < i} -> IO a",
+        "p:Ptr a -> off:Nat -> v:{Word8 | 0 <= v}"
+    ],
+    "Ex11.hs--create'": [
+        "n:Nat -> {v:Ptr a | 0 < plen v} -> IO (ByteStringN n)",
+        "n:Nat -> (Ptr Word8 -> IO ()) -> ByteString2",
+        "n:Nat -> f:(Ptr Word8 -> IO ()) -> ByteString",
+        "n:Nat -> (Ptr a -> IO ()) -> ByteStringN n",
+        "n:Nat -> (a -> IO b) -> ByteStringN n",
+        "n:Nat -> f:(Ptr Word8 -> IO ()) -> {v:ByteString | bLen v = n}",
+        "n:Nat -> (Ptr Word8 -> IO ()) -> ByteString",
+        "n:Nat -> IO (ForeignPtrN a n)",
+        "n:Nat -> (Ptr Word8 -> IO ()) -> ByteStringN n"
+    ],
+    "Ex11.hs--pack": [
+        "<mask_3>"
+    ],
+    "Ex11.hs--unpack": [
+        "<mask_4>",
+        "ByteString -> String",
+        "ByteString -> <mask_4>"
+    ],
+    "Ex11.hs--go''": [
+        "OkPtr a -> Int -> [Char] -> IO ()",
+        "(Ptr Word8 -> IO (Maybe Word8)) -> Pos -> [Word8] -> IO [Word8]",
+        "p:Ptr Word8 -> <mask_5> -> {v:String | v = concat (take (bOff ps) (bPtr ps))}",
+        "p:_ -> len:{Nat | len p <= fplen p} -> acc:{[Word8] | 0 < len}",
+        "{v:_ | fplen v = 1 + bOff v} -> p:Ptr Word8 -> n:{Nat | 0 <= n} -> acc:{List a | fplen acc = 1} -> IO (List a)",
+        "OkPtr a -> Nat -> ListN a Nat -> IO ()",
+        "p:{Ptr a} -> len p -> acc:[Word8] -> IO [Word8]",
+        "p:Ptr a -> {v:Word8 | 0 <= v && v < 256} -> {v:ByteString | 0 < plen v}",
+        "p:Ptr Word8 -> i:{Pos | i < ln} -> v:{String | i < plen v}",
+        "OkPtr a -> Pos -> ListN a Pos -> IO ()"
+    ],
+    "Ex11.hs--unsafeTake": [
+        "n:Nat -> ByteString -> ByteString",
+        "<mask_6>",
+        "{v:Nat | v <= bLen b} -> ByteString -> ByteStringN 0",
+        "n:Nat -> ByteString -> ByteStringN n"
+    ],
+    "Ex11.hs--unsafeDrop": [
+        "<mask_7>"
+    ],
+    "Ex11.hs--chop": [
+        "String -> Nat -> String",
+        "String -> Int -> String",
+        "<mask_8>"
+    ],
+    "Ex11.hs--spanByte": [
+        "Word8 -> ByteString -> (ByteString, ByteString)",
+        "c:Word8 -> ByteString -> (ByteString, ByteString)",
+        "<mask_9>",
+        "c:Word8 -> <mask_9>",
+        "c:Word8 -> ByteString -> {v:ByteString | bLen v = 1, c == (bPtr v)!! (bOff v)}",
+        "x:{Word8 | x == #\\0} -> {v:ByteString | bLen v == 0}",
+        "c:{Word8 | c /= '\\0'} -> (ps:{ByteString | bLen ps == 1}, b:ByteString) -> {v:ByteString | 0 < len v}"
+    ],
+    "Ex12.hs--singleton": [
+        "a -> AVL a",
+        "{v:a | v} -> AVL a",
+        "<mask_1>",
+        "{v:a | true} -> AVL a",
+        "{v:a | v > 0} -> AVL a"
+    ],
+    "Ex12.hs--mkNode": [
+        "<mask_2>",
+        "{v:a | v < X} -> {v: AVL a | realHeight v > 0} -> {v: AVL a | realHeight v > 0} -> AVL a",
+        "{v:a | v < X} -> {v:AVL a | v < X} -> {v:AVL a | v < X} -> AVL a",
+        "{v:a | v < X} -> {v:AVL a | X < v} -> {v:AVL a | realHeight v = N} -> AVL a",
+        "{v: a | false} -> <mask_2> -> {v: AVL a | false} -> {v: AVL a | false} -> {v: AVL a | false}",
+        "{v:a | mask_0} -> {v:AVL a | mask_1} -> {v:AVL a | mask_2} -> AVL a",
+        "{v:a | v < a} -> {v:AVL a | v < a} -> {v:AVL a | v < a} -> AVL a",
+        "{v:a | v < <mask_2>} -> {v:AVL a | v < <mask_3>} -> {v:AVL a | v < <mask_4>} -> {v:AVL a | v < <mask_5>} -> {v:AVL a | v < <mask_6>} -> {v:AVL a | v < <mask_7>} -> {v:AVL a | v < <mask_8>} -> {v:AVL a | v < <mask_9>} -> {v:AVL a | v < <"
+    ],
+    "Ex12.hs--getHeight": [
+        "{v:AVL a | getHeight v > 0} -> {v:Int | 0 <= v}",
+        "{v:AVL a | getHeight v > 0} -> _",
+        "{t: AVL a | getHeight t > 0} -> {v: Int | v < realHeight t}",
+        "AVL a -> {v:Nat | isNode v}",
+        "{t:AVL a | getHeight t > 0} -> _",
+        "{v:AVL a | realHeight v > 0} -> _",
+        "AVL a -> {v:Nat | v >= 0}",
+        "{v:AVL a | isNode v} -> {v:Nat | isReal v l r}"
+    ],
+    "Ex12.hs--balL0": [
+        "<mask_4>",
+        "<mask_1>",
+        "{v:AVL a | isBal 0 v 0}",
+        "{v:AVL a | isBal l v 0}"
+    ],
+    "Ex12.hs--balLL": [
+        "<mask_5>"
+    ],
+    "Ex12.hs--balLR": [
+        "<mask_6>"
+    ],
+    "Ex12.hs--balR0": [
+        "<mask_7>"
+    ],
+    "Ex12.hs--balRR": [
+        "<mask_8>"
+    ],
+    "Ex12.hs--balRL": [
+        "<mask_9>"
+    ],
+    "Ex12.hs--bal": [
+        "<mask_10>"
+    ],
+    "Ex12.hs--insert": [
+        "<mask_11>"
+    ],
+    "Ex12.hs--delete": [
+        "<mask_12>"
+    ],
+    "Ex12.hs--merge": [
+        "<mask_13>"
+    ],
+    "Ex9.hs--cons": [
+        "x:a -> (y:SList a) -> {v:SList a | size v = size x + 1}",
+        "a -> SList a -> SList a",
+        "a -> {v:SList a | size v = size xs + 1} -> SList a",
+        "{v:a | true} -> {v:SList a | true} -> SList a",
+        "x:a -> xs:{v:SList a | realSize xs = size xs + 1} -> SList a",
+        "x:a -> {v:SList a | size v = 1} -> SList a",
+        "a -> {v:SList a | realSize v = size x + 1}"
+    ],
+    "Ex9.hs--hd": [
+        "SList a -> a",
+        "<mask_2>",
+        "SListN a 1"
+    ],
+    "Ex9.hs--tl": [
+        "<mask_3>",
+        "{v:_ | false}",
+        "SList a -> SList a"
+    ],
+    "Ex9.hs--rot": [
+        "<mask_4>",
+        "{v:SList a | size v = n} -> {v:SList a | size v = m} -> {v:SList a | size v = n - m}"
+    ],
+    "Ex9.hs--makeq": [
+        "SList a -> SList a -> Queue a",
+        "<mask_5>",
+        "{v:SList a | realSize v = size f} -> {v:SList a | realSize v = size b} -> Queue a"
+    ],
+    "Ex9.hs--remove": [
+        "<mask_6>",
+        "QueueN a 1"
+    ],
+    "Ex9.hs--insert": [
+        "a -> QueueN a 0",
+        "a -> Queue a -> Queue a"
+    ],
+    "Ex9.hs--take": [
+        "{v:Int | v > 0} -> Queue a -> (Queue a, Queue a)",
+        "Nat -> QueueN a N -> (QueueN a N, QueueN a N)",
+        "Int -> Queue a -> (Queue a, Queue a)",
+        "<mask_8>",
+        "{v:_ | true} -> Int -> Queue a -> (Queue a, Queue a)",
+        "{v:Nat | v > 0} -> Queue a -> (Queue a, Queue a)",
+        "{v:[a] | size v = n} -> (Queue a, Queue a)",
+        "{v:_ | v >= 0} -> {v1:Queue a | qsize v1 <= v}"
+    ]
+}
