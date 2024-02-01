@@ -12,7 +12,9 @@ MASK_ONLY_POST_COND = False
 USE_RAW_PROGRAMS = False # i.e. no haskell types and no tests
 USE_HASKEL_TYPES = True # i.e. haskell types in programs, but no tests
 USE_HASKEL_TYPES_AND_TESTS = False # i.e. haskell types and tests in programs
-
+FIM_PREFIX = "<fim_prefix>"
+FIM_MIDDLE = "<fim_middle>"
+FIM_SUFFIX = "<fim_suffix>"
 
 def comment_out_non_code(prog):
     """
@@ -73,11 +75,11 @@ total_type_errors = 0
 ground_truth_types = {}
 samples_per_func = {}
 for target_file in listdir(path_to_bad_progs):
-    print(target_file)
     if not target_file.startswith("Ex") or "_correct" in target_file:
         continue
     if not target_file.endswith(".hs") and not target_file.endswith(".lhs"):
         continue
+    print(target_file)
     with open(join(path_to_bad_progs, target_file), "r", encoding="utf-8") as bad_fin:
         bad_prog = bad_fin.read()
     with open(join(path_to_corrects_progs, target_file.replace(".hs", "_correct.hs")), "r", encoding="utf-8") as good_fin:
@@ -118,9 +120,6 @@ for target_file in listdir(path_to_bad_progs):
     sample_pair["masked_code"] = prefix + new_bad_prog
     if sample_pair["masked_code"].count("<fimask>") != 1:
         print(f"{sample_pair['masked_code'].count('<fimask>')} masks in final prompt")
-    FIM_PREFIX = "<fim_prefix>"
-    FIM_MIDDLE = "<fim_middle>"
-    FIM_SUFFIX = "<fim_suffix>"
     split_code = sample_pair["masked_code"].split("<fimask>")
     sample_pair["bad"] = f"{FIM_PREFIX}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
     sample_pair["fix"] = new_bad_prog
