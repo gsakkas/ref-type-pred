@@ -22,6 +22,7 @@ def get_args():
     _args = parser.parse_args()
     return _args
 
+
 def comment_out_non_code(prog):
     """
     Comments out all non-code lines from the LiquidHaskell student exercises.
@@ -63,6 +64,7 @@ def remove_non_code(prog):
             to_keep = True
 
     return "\n".join(upd_prog_lines)
+
 
 args = get_args()
 
