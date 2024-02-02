@@ -8,8 +8,10 @@ from predict.get_starcoder_code_suggestions import get_starcoder_code_suggestion
 
 def get_args():
     parser = argparse.ArgumentParser(description='run_dependency_lh_tests')
-    parser.add_argument('--total_repairs', default=10, type=int,
-                        help='total repairs to generate with the model (default: 10)')
+    parser.add_argument('--total_preds', default=10, type=int,
+                        help='total type predictions to generate per function type (default: 10)')
+    parser.add_argument('--max_preds', default=50, type=int,
+                        help='maximum number of predictions to generate with the model in total (default: 50)')
     parser.add_argument('--llm', default="starcoderbase-3b",
                         help='llm to use for code generation {incoder-1B, -6B, codegen25-7B, starcoderbase-1b, -3b, -15b} (default: starcoderbase-3b)')
     parser.add_argument('--update_cache', action='store_true',
@@ -30,67 +32,88 @@ def get_args():
     return _args
 
 
-def make_prompt_from_masked_code(badp, fixp, masked_types, filename):
+def make_prompt_from_masked_code(badp, mask_id, masked_types, filename):
     FIM_PREFIX = "<fim_prefix>"
     FIM_MIDDLE = "<fim_middle>"
     FIM_SUFFIX = "<fim_suffix>"
 
-    correct_types = {}
-    for masked_type in masked_types:
-        func = masked_type.split()[1].strip()
-        ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fixp)[0].strip()
-        if not ground_truth:
-            continue
-        correct_types[func] = ground_truth
+    prefix = f"<filename>solutions/{filename}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
+    # Remove all other masks and keep the one we want to predict for
+    one_mask_bad_prog = badp.replace(f"<mask_{mask_id}>", "<fimask>")
+    for mtype in masked_types:
+        if mtype in one_mask_bad_prog:
+            one_mask_bad_prog = re.sub(mtype + r"\s*", "", one_mask_bad_prog, 1)
+    split_code = one_mask_bad_prog.split("<fimask>")
+    prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
 
-    prompts = []
-    for mask_id in range(1, len(masked_types)+1):
-        prefix = f"<filename>solutions/{filename}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
-        # Remove all other masks and keep the one we want to predict for
-        one_mask_bad_prog = badp.replace(f"<mask_{mask_id}>", "<fimask>")
-        for mtype in masked_types:
-            if mtype in one_mask_bad_prog:
-                one_mask_bad_prog = re.sub(mtype + r"\s*", "", one_mask_bad_prog, 1)
-        split_code = one_mask_bad_prog.split("<fimask>")
-        prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
-        prompts.append(prompt)
-
-    return prompts, correct_types
+    return prompt
 
 
-def get_type_predictions(masked_types, all_prompts, filename, args):
-    cache_file = join(args.out_dir, args.cache_file)
-    cache = {}
-    if (args.use_cache or args.update_cache or args.create_cache_only) and exists(cache_file):
-        with open(cache_file, "r", encoding="utf-8") as cf:
-            cache = json.loads(cf.read())
-
+def get_type_predictions(prompt, key, msk_id, args):
     print("-" * 42)
-    for mtype, prompt in zip(masked_types, all_prompts):
-        print(f"{mtype}")
-        func = mtype.split()[1].strip()
-        key = f"{filename}--{func}"
-        if args.use_cache and key in cache and cache[key] != []:
-            if args.print_logs:
-                print("-> Using cache...")
-            prog_repairs = cache[key]
-        else:
-            if args.print_logs:
-                print("-> LLM generation...")
-            prog_repairs = get_starcoder_code_suggestions(prompt, args.total_repairs)
-            prog_repairs = list(set(prog_repairs))
-        print(f"-> {len(prog_repairs)} unique predicted types")
-        if args.update_cache or args.create_cache_only:
-            cache[key] = prog_repairs
+    print(f"New type predictions for {key}")
+    print("-> LLM generation...", flush=True)
+    # NOTE: The deeper we are in the loop, get more predictions
+    # in order to avoid backtracking and potentially removing a correct earlier type
+    # Potentially, can be done differently, i.e. generate more when failing
+    prog_preds = get_starcoder_code_suggestions(prompt, min(args.max_preds, args.total_preds + msk_id * 2))
+    prog_preds = list(set(prog_preds))
+    print(f"-> {len(prog_preds)} unique predicted types", flush=True)
+    return prog_preds
 
-    if args.update_cache or args.create_cache_only:
-        if args.print_logs:
-            print("+" * 42)
-            print(f"Saving cache to local file ({cache_file})...")
-        with open(cache_file, "w", encoding="utf-8") as cf:
-            cf.write(json.dumps(cache, indent = 4))
 
-    return cache
+def replace_type_with_pred(func, pred, prog, all_mtypes):
+    tp = pred
+    # NOTE: need to take care of possible '\f ->' in predicted types
+    # '\\'s are evaluated to one '\' when subing, so we need to add another one
+    if "\\" in pred:
+        tp = pred.replace("\\", "\\\\")
+    llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {tp} @-}}", prog, 1)
+    # Ignore all other masks and keep the one we want to test for
+    for mtype in all_mtypes:
+        if mtype in llm_prog:
+            ignore_func = mtype.split()[1].strip()
+            llm_prog = re.sub(mtype + r"\s*", f"{{-@ ignore {ignore_func} @-}}\n", llm_prog, 1)
+    # Disable any properties that can't be used yet
+    prog_parts = llm_prog.split(f"{{-@ {func} :: {pred} @-}}")
+    if "prop_" in prog_parts[1]:
+        prog_parts[1] = re.sub(r"{-@\s*?prop_", "{-- prop_", prog_parts[1])
+    # Enable any properties that can be used now
+    if "prop_" in prog_parts[0]:
+        prog_parts[0] = prog_parts[0].replace("{-- prop_", "{-@ prop_")
+
+    llm_prog = f"{{-@ {func} :: {pred} @-}}".join(prog_parts)
+    return llm_prog
+
+
+def restore_mask_at_id(m_id, func, prog):
+    # print(f"Restored {func} :: <mask_{m_id}>")
+    llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: <mask_{m_id}> @-}}", prog, 1)
+    return llm_prog
+
+
+def restore_ignored_masks(all_mtypes, prog):
+    llm_prog = prog
+    for mtype in all_mtypes:
+        ignore_func = mtype.split()[1].strip()
+        if f"{{-@ ignore {ignore_func} @-}}" in llm_prog:
+            # print(f"Restored ignore {mtype}...")
+            llm_prog = llm_prog.replace(f"{{-@ ignore {ignore_func} @-}}", mtype, 1)
+    return llm_prog
+
+
+def lh_verifies_prog(prog, target_file, args):
+    with open(join(args.exec_dir, target_file.replace(".hs", "_llm.hs")), "w", encoding="utf-8") as llm_fin:
+        llm_fin.write(prog)
+
+    solved = False
+    cmds = f"cd {args.exec_dir}; "
+    cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {target_file.replace('.hs', '_llm.hs')}"
+    test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
+    result = test_output.stdout.decode('utf-8').strip()
+    if result != "" and "UNSAFE" not in result and "SAFE" in result:
+        solved = True
+    return solved
 
 
 def run_tests(path, args):
@@ -105,6 +128,7 @@ def run_tests(path, args):
     all_progs = 0
     masks_per_exer = {k: 0 for k in set(difficulties.keys())}
     correct_llm_types_per_exer = {k: 0 for k in set(difficulties.keys())}
+    deepest_correct_type_id = {k: 0 for k in set(difficulties.keys())}
 
     for target_file in sorted(listdir(path)):
         if not target_file.startswith("Ex") or "_correct" in target_file:
@@ -121,71 +145,87 @@ def run_tests(path, args):
 
         all_liquid_types = re.findall(r"{-@[\s\S]*?@-}", bad_prog)
         masked_func_types = list(filter(lambda x: "<mask_" in x, all_liquid_types))
-        all_prompts, ground_truths = make_prompt_from_masked_code(bad_prog, fix_prog, masked_func_types, target_file)
-        type_preds_cache = get_type_predictions(masked_func_types, all_prompts, target_file, args)
-        if args.create_cache_only:
-            continue
 
-        masks_per_exer[target_file] = len(masked_func_types)
+        ground_truths = {}
         for masked_type in masked_func_types:
             func = masked_type.split()[1].strip()
+            ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)[0].strip()
+            ground_truths[func] = ground_truth
+
+        masks_per_exer[target_file] = len(masked_func_types)
+        type_preds_cache = {}
+        have_tested_type = {}
+        llm_prog = bad_prog
+        mask_id = 1
+        while mask_id <= masks_per_exer[target_file]:
+            masked_type = masked_func_types[mask_id-1]
+            func = masked_type.split()[1].strip()
             print("=" * 42)
-            print(f"Solving {target_file} ({func})...")
+            print(f"Solving {target_file} ({func})...", flush=True)
             key = f"{target_file}--{func}"
+            if key not in have_tested_type:
+                have_tested_type[key] = set()
             solved = False
-            for type_prediction in type_preds_cache[key]:
-                if args.print_logs:
-                    print("-" * 42)
-                    print(f"{{-@ {func} :: {type_prediction} @-}}")
+            prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
+            mtype_preds = get_type_predictions(prompt, key, mask_id-1, args)
+            if key in type_preds_cache:
+                preds, num_of_preds = type_preds_cache[key]
+                preds.extend(mtype_preds)
+                preds = list(set(preds))
+                num_of_preds += args.total_preds
+                # NOTE: Exit criteria for the backtracking loop
+                # If we have generated too many types for this function
+                # or the LLM can't generate any new ones, then exit here
+                if num_of_preds > args.max_preds:
+                    break
+                if len(preds) == len(type_preds_cache[key][0]):
+                    break
+                type_preds_cache[key] = preds, num_of_preds
+            else:
+                type_preds_cache[key] = mtype_preds, args.total_preds
+
+            for type_prediction in type_preds_cache[key][0]:
+                if type_prediction in have_tested_type[key]:
+                    continue
+                have_tested_type[key].add(type_prediction)
+                print("-" * 42)
+                print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                 # NOTE: Just a random check, cause LH crashes for too long types
                 if len(type_prediction) > len(ground_truths[func]) + 32:
-                    if args.print_logs:
-                        print("...UNSAFE")
+                    print("...UNSAFE")
                     continue
 
-                with open(join(args.exec_dir, target_file.replace(".hs", "_llm.hs")), "w", encoding="utf-8") as llm_fin:
-                    tp = type_prediction
-                    # NOTE: need to take care of possible '\f ->' in predicted types
-                    # '\\'s are evaluated to one '\' when writing in file, so we need to add another one
-                    if "\\" in type_prediction:
-                        tp = type_prediction.replace("\\", "\\\\")
-                    llm_prog = re.sub(masked_type, f"{{-@ {func} :: {tp} @-}}", bad_prog, 1)
-                    # Ignore all other masks and keep the one we want to test for
-                    for mtype in masked_func_types:
-                        if mtype in llm_prog:
-                            ignore_func = mtype.split()[1].strip()
-                            llm_prog = re.sub(mtype + r"\s*", f"{{-@ ignore {ignore_func} @-}}\n", llm_prog, 1)
-                    # Remove properties that can't be used yet
-                    prog_parts = llm_prog.split(f"{{-@ {func} :: {type_prediction} @-}}")
-                    if "prop_" in prog_parts[1]:
-                        prog_parts[1] = re.sub(r"{-@\s*?prop_[\s\S]*?::[\s\S]*?@-}\n", "", prog_parts[1])
-                        llm_prog = f"{{-@ {func} :: {type_prediction} @-}}".join(prog_parts)
-                    llm_fin.write(llm_prog)
-
-                cmds = f"cd {args.exec_dir}; "
-                cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {target_file.replace('.hs', '_llm.hs')}"
-                test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
-                result = test_output.stdout.decode('utf-8').strip()
-                if result != "" and "UNSAFE" not in result and "SAFE" in result:
-                    correct_llm_types_per_exer[target_file] += 1
+                llm_prog = replace_type_with_pred(func, type_prediction, llm_prog, masked_func_types)
+                if lh_verifies_prog(llm_prog, target_file, args):
                     solved = True
-                    if args.print_logs:
-                        print("...SAFE")
+                    print("...SAFE", flush=True)
                     break
-                if args.print_logs:
-                    print("...UNSAFE")
+                print("...UNSAFE", flush=True)
             print("-" * 42)
-            if args.print_logs:
-                print("-" * 42)
+            print("-" * 42)
             if solved:
-                print(f"{func} --> SAFE")
+                print(f"{func} --> SAFE", flush=True)
+                correct_llm_types_per_exer[target_file] += 1
+                deepest_correct_type_id[target_file] = max(correct_llm_types_per_exer[target_file], deepest_correct_type_id[target_file])
+                mask_id += 1
             else:
-                print(f"{func} --> UNSAFE")
+                print(f"{func} --> UNSAFE", flush=True)
+                mask_id -= 1
+                if mask_id > 0:
+                    print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                    correct_llm_types_per_exer[target_file] -= 1
+                    llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
+                    llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
+                else:
+                    print("Backtracked to start; Exiting...", flush=True)
+                    break
+            llm_prog = restore_ignored_masks(masked_func_types, llm_prog)
 
         if correct_llm_types_per_exer[target_file] == masks_per_exer[target_file]:
             fixed_progs += 1
         print("=" * 42)
         print(f"{correct_llm_types_per_exer[target_file]} / {masks_per_exer[target_file]} types predicted correctly")
+        print(f"{deepest_correct_type_id[target_file]} / {masks_per_exer[target_file]} deepest type predicted correctly")
 
     print("=" * 42)
     print("=" * 42)
@@ -193,6 +233,7 @@ def run_tests(path, args):
         print(f">>> Chapter {k[2:].split('.')[0]}")
         print(f"{correct_llm_types_per_exer[k]} / {masks_per_exer[k]} types predicted correctly")
         print(f"{correct_llm_types_per_exer[k] * 100 / masks_per_exer[k]:.2f}% prediction accuracy")
+        print(f"{deepest_correct_type_id[k]} / {masks_per_exer[k]} deepest type predicted correctly")
         print("-" * 42)
     print("=" * 42)
     print("=" * 42)
