@@ -6,8 +6,10 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install --upgrade huggingface_hub
 pip install -r src/requirements.txt
-vim get_starcoder_code_suggestions.py
+curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+source /home/gsakkas/.ghcup/env
 export OPENAI_KEY="dummy"
 export PYTHONPATH=$PYTHONPATH:/home/gsakkas/Documents/UCSD/Program-Analytics/ref-type-pred/src
 huggingface-cli login --token dummy # TODO: change dummy with actual token
-CUDA_VISIBLE_DEVICES=0 python run_llm_generation.py --llm starcoderbase-3B --data_file lh_test_set_final_raw_v3.jsonl --total_repairs 20 --cache_file lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_raw_v3.json --create_cache_only
+# CUDA_VISIBLE_DEVICES=0 python run_llm_generation.py --llm starcoderbase-3B --data_file lh_test_set_final_raw_v3.jsonl --total_repairs 20 --cache_file lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_raw_v3.json --create_cache_only
+CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_test_set_with_repairs.py --total_preds 10 --max_preds 50 > results/lh_dependency_tests_starcoderbase_3b_test.txt
