@@ -56,9 +56,10 @@ isBal l r n = 0 - n <= d && d <= n
 {-@ empty :: AVLN a 0 @-}
 empty = Leaf
 
-{-@ singleton :: a -> AVLN a 1 @-}
-singleton :: a -> AVL a
-singleton a = mkNode a empty empty
+{-@ measure getHeight @-}
+{-@ getHeight :: t:_ -> {v:Nat | v = realHeight t} @-}
+getHeight Leaf = 0
+getHeight (Node _ _ _ n) = n
 
 {-@ mkNode :: x:a -> l:AVLL a x -> {r:AVLR a x | isBal l r 1} -> AVLN a {nodeHeight l r} @-}
 mkNode :: a -> AVL a -> AVL a -> AVL a
@@ -68,10 +69,9 @@ mkNode v l r = Node v l r h
         hl = getHeight l
         hr = getHeight r
 
-{-@ measure getHeight @-}
-{-@ getHeight :: t:_ -> {v:Nat | v = realHeight t} @-}
-getHeight Leaf = 0
-getHeight (Node _ _ _ n) = n
+{-@ singleton :: a -> AVLN a 1 @-}
+singleton :: a -> AVL a
+singleton a = mkNode a empty empty
 
 {-@ inline leftBig @-}
 leftBig l r = diff l r == 2
@@ -154,6 +154,9 @@ eqOrUp s t = d == 0 || d == 1
     where
         d = diff t s
 
+{-@ inline eqOrDn @-}
+eqOrDn s t = eqOrUp t s
+
 {-@ inline bigHt @-}
 bigHt l r t = lBig && rBig
     where
@@ -180,6 +183,20 @@ bal v l r
         isLeftBig  = leftBig l r
         isRightBig = rightBig l r
 
+getMin (Node x Leaf r _) = (x, r)
+getMin (Node x l r _)    = (x', bal x l' r)
+    where
+    (x', l') = getMin l
+getMin Leaf = die "impossilbe for Leaf"
+
+{-@ merge :: x:a -> l:AVLL a x -> r:{AVLR a x | isBal l r 1} -> {t:AVL a | bigHt l r t} @-}
+merge :: a -> AVL a -> AVL a -> AVL a
+merge _ Leaf r = r
+merge _ l Leaf = l
+merge x l r = bal y l r'
+    where
+        (y, r') = getMin r
+
 {-@ insert :: a -> s:AVL a -> {t: AVL a | eqOrUp s t} @-}
 insert :: (Ord a) => a -> AVL a -> AVL a
 insert a t@(Node v l r n)
@@ -195,23 +212,6 @@ delete y (Node x l r _)
     | x < y     = bal x l (delete y r)
     | otherwise = merge x l r
 delete _ Leaf = Leaf
-
-{-@ inline eqOrDn @-}
-eqOrDn s t = eqOrUp t s
-
-{-@ merge :: x:a -> l:AVLL a x -> r:{AVLR a x | isBal l r 1} -> {t:AVL a | bigHt l r t} @-}
-merge :: a -> AVL a -> AVL a -> AVL a
-merge _ Leaf r = r
-merge _ l Leaf = l
-merge x l r = bal y l r'
-    where
-        (y, r') = getMin r
-
-getMin (Node x Leaf r _) = (x, r)
-getMin (Node x l r _)    = (x', bal x l' r)
-    where
-    (x', l') = getMin l
-getMin Leaf = die "impossilbe for Leaf"
 
 {-@ isNode :: {t:AVL a | getHeight t > 0} -> _ @-}
 isNode Leaf = 0

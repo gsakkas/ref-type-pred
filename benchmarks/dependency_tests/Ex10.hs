@@ -62,22 +62,6 @@ data Expr = Const Int
 plus (Const i) (Const j) = Const (i+j)
 plus _         _         = die "Bad call to plus"
 
-{-@ type Env = Map Var Val @-}
-{-@ type ClosedExpr G = {v:Expr | Subset (free v) (keys G)} @-}
-
-{-@ eval :: <mask_2> @-}
-eval :: Map Var Expr -> Expr -> Expr
-eval _ i@(Const _)   = i
-eval g (Var x)       = get x g
-eval g (Plus e1 e2)  = plus  (eval g e1) (eval g e2)
-eval g (Let x e1 e2) = eval g' e2
-  where
-    g'               = set x v1 g
-    v1               = eval g e1
-
-{-@ topEval :: <mask_3> @-}
-topEval     = eval emp
-
 {-@ measure free @-}
 free               :: Expr -> Set Var
 free (Const _)     = empty
@@ -92,14 +76,14 @@ free (Let x e1 e2) = xs1 `union` (xs2 `difference` xs)
     xs2            = free e2
     xs             = singleton x
 
-{-@ lemNotMem :: <mask_4> @-}
+{-@ lemNotMem :: <mask_2> @-}
 lemNotMem :: k -> Map k v -> Bool
 lemNotMem _   Tip            = True
 lemNotMem key (Node _ _ l r) = lemNotMem key l && lemNotMem key r
 
 assert _ x = x
 
-{-@ mem :: <mask_5> @-}
+{-@ mem :: <mask_2> @-}
 mem :: Ord k => k -> Map k v -> Bool
 mem k' (Node k _ l r)
   | k' == k   = True
@@ -111,7 +95,7 @@ mem _ Tip     = False
 prop_mem :: (Ord k) => k -> Map k v -> Bool
 prop_mem k m = not (k `member` keys m) || (k `mem` m)
 
-{-@ get :: <mask_6> @-}
+{-@ get :: <mask_3> @-}
 get :: (Ord k) => k -> Map k v -> v
 get k' (Node k v l r)
   | k' == k   = v
@@ -121,7 +105,7 @@ get k' (Node k v l r)
                   get k' r
 get _ Tip     = die "Lookup failed? Impossible."
 
-{-@ set :: <mask_7> @-}
+{-@ set :: <mask_4> @-}
 set :: (Ord k) => k -> v -> Map k v -> Map k v
 set k' v' (Node k v l r)
   | k' == k   = Node k v' l r
@@ -129,7 +113,23 @@ set k' v' (Node k v l r)
   | otherwise = Node k v l (set k' v r)
 set k' v' Tip = Node k' v' Tip Tip
 
-{-@ evalAny :: <mask_8> @-}
+{-@ type Env = Map Var Val @-}
+{-@ type ClosedExpr G = {v:Expr | Subset (free v) (keys G)} @-}
+
+{-@ eval :: <mask_5> @-}
+eval :: Map Var Expr -> Expr -> Expr
+eval _ i@(Const _)   = i
+eval g (Var x)       = get x g
+eval g (Plus e1 e2)  = plus  (eval g e1) (eval g e2)
+eval g (Let x e1 e2) = eval g' e2
+  where
+    g'               = set x v1 g
+    v1               = eval g e1
+
+{-@ topEval :: <mask_6> @-}
+topEval     = eval emp
+
+{-@ evalAny :: <mask_7> @-}
 evalAny :: Map Var Expr -> Expr -> Maybe Expr
 evalAny g e
   | ok        = Just $ eval g e
@@ -142,6 +142,11 @@ evalAny g e
 elems []     = empty
 elems (x:xs) = (singleton x) `union` (elems xs)
 
+{-@ lemNotElem :: <mask_8> @-}
+lemNotElem :: a -> [a] -> Bool
+lemNotElem x []     = True
+lemNotElem x (y:ys) = lemNotElem x ys
+
 {-@ fresh :: <mask_9> @-}
 fresh :: [Int] -> Int
 fresh []     = 0
@@ -150,11 +155,6 @@ fresh (x:xs) = go x [] xs
     go :: Int -> [Int] -> [Int] -> Int
     go x s []     = assert (lemNotElem x s) (x + 1)
     go x s (y:ys) = go (1 + max x y) (x:s) ys
-
-{-@ lemNotElem :: <mask_10> @-}
-lemNotElem :: a -> [a] -> Bool
-lemNotElem x []     = True
-lemNotElem x (y:ys) = lemNotElem x ys
 
 {-@ prop_fresh :: _ -> TRUE @-}
 prop_fresh :: [Int] -> Bool
