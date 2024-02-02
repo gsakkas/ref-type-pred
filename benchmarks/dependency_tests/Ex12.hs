@@ -178,7 +178,7 @@ insert a t@(Node v l r n)
     | otherwise = t
 insert a Leaf = singleton a
 
-{-@ delete :: <mask_14> @-}
+{-@ delete :: <mask_13> @-}
 delete :: (Ord a) => a -> AVL a -> AVL a
 delete y (Node x l r _)
     | y < x     = bal x (delete y l) r
