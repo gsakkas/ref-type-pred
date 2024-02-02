@@ -5,7 +5,7 @@ from peft import PeftModel
 def get_starcoder_code_suggestions(prompt, num_sugg):
     responses = []
     while len(responses) < num_sugg:
-        local_responses = get_starcoder_response_with_retries(prompt, 3, 256)
+        local_responses = get_starcoder_response_with_retries(prompt, 4, 256)
         if not local_responses:
             return responses
         responses.extend(local_responses)
@@ -13,12 +13,16 @@ def get_starcoder_code_suggestions(prompt, num_sugg):
 
 
 def extract_code_from_starcoder_suggestion(code):
-    """Extract the Python code from the StarCoder suggestion"""
+    """Extract new code from the StarCoder suggestion"""
     new_code = code.replace('\r\n', '\n')
-    new_code = new_code.split("<fim_middle>")[1].rstrip().split("<|endoftext|>")[0].rstrip()
+    if "<fim_middle>" in new_code:
+        new_code = new_code.split("<fim_middle>")[1].rstrip()
     if "@-}" in new_code:
         new_code = new_code.split("@-}")[0].rstrip()
-    new_code = '\n'.join(new_code.split('\n'))
+    if "<|endoftext|>" in new_code:
+        new_code = new_code.split("<|endoftext|>")[0].rstrip()
+    if "\\" in new_code:
+        new_code = new_code.replace("\\", "\\\\")
     # print(f"extracted code from \n'''{code}'''\n is \n'''{new_code}'''\n")
     return new_code
 
@@ -34,7 +38,7 @@ def get_starcoder_response_with_retries(prompt, num_seqs, max_new_tokens):
     tokenizer.padding_side = "left"
 
     model = AutoModelForCausalLM.from_pretrained(
-        "bigcode/starcoderbase-1b",
+        "bigcode/starcoderbase-3b",
         # device_map="auto",
         torch_dtype=torch.float16,
         load_in_8bit=True,
@@ -58,7 +62,7 @@ def get_starcoder_response_with_retries(prompt, num_seqs, max_new_tokens):
             predictions = model.generate(input_ids=input_ids,
                                         pad_token_id=tokenizer.eos_token_id,
                                         do_sample=True,
-                                        temperature=0.8,
+                                        temperature=0.90,
                                         top_k=100,
                                         top_p=0.95,
                                         num_return_sequences=local_num_seqs,

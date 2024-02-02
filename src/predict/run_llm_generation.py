@@ -12,7 +12,8 @@ from os.path import exists, join
 
 import deepspeed
 
-import get_llm_code_suggestions as codex
+import predict.get_llm_code_suggestions as codex
+from predict.get_starcoder_code_suggestions import get_starcoder_code_suggestions
 
 TIMEOUT = 60 * 30
 
@@ -60,7 +61,6 @@ def llm_instruct_prompt_prediction(orig_prg, cmd_args, cache_key=None, cache=Non
             if cmd_args.use_cache and key in cache and cache[key] != []:
                 prog_repairs = cache[key]
             elif "starcoder" in llm:
-                from get_starcoder_code_suggestions import get_starcoder_code_suggestions
                 prog_repairs = get_starcoder_code_suggestions(prompt, cmd_args.total_repairs)
             else:
                 prog_repairs = codex.get_codex_code_suggestions_from_chat(prompt, 256, cmd_args.total_repairs)
