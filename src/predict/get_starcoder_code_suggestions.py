@@ -21,8 +21,6 @@ def extract_code_from_starcoder_suggestion(code):
         new_code = new_code.split("@-}")[0].rstrip()
     if "<|endoftext|>" in new_code:
         new_code = new_code.split("<|endoftext|>")[0].rstrip()
-    if "\\" in new_code:
-        new_code = new_code.replace("\\", "\\\\")
     # print(f"extracted code from \n'''{code}'''\n is \n'''{new_code}'''\n")
     return new_code
 
