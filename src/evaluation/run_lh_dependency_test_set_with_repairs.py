@@ -4,7 +4,7 @@ from os import listdir
 import json
 import re
 import subprocess as subp
-from src.predict.get_starcoder_code_suggestions import get_starcoder_code_suggestions
+from predict.get_starcoder_code_suggestions import get_starcoder_code_suggestions
 
 def get_args():
     parser = argparse.ArgumentParser(description='run_dependency_lh_tests')
@@ -46,7 +46,12 @@ def make_prompt_from_masked_code(badp, fixp, masked_types, filename):
     prompts = []
     for mask_id in range(1, len(masked_types)+1):
         prefix = f"<filename>solutions/{filename}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
-        split_code = badp.split(f"<mask_{mask_id}>")
+        # Remove all other masks and keep the one we want to predict for
+        one_mask_bad_prog = badp.replace(f"<mask_{mask_id}>", "<fimask>")
+        for mtype in masked_types:
+            if mtype in one_mask_bad_prog:
+                one_mask_bad_prog = re.sub(mtype + r"\s*", "", one_mask_bad_prog, 1)
+        split_code = one_mask_bad_prog.split("<fimask>")
         prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
         prompts.append(prompt)
 
@@ -129,22 +134,21 @@ def run_tests(path, args):
             key = f"{target_file}--{func}"
             solved = False
             for type_prediction in type_preds_cache[key]:
-                with open(join(args.exec_dir, target_file.replace(".hs", "_llm.hs")), "w", encoding="utf-8") as llm_fin:
-                    if "@-}" in type_prediction:
-                        type_prediction = type_prediction.split("@-}")[0].rstrip()
-                    if "\\" in type_prediction:
-                        type_prediction = type_prediction.replace("\\", "\\\\")
+                if args.print_logs:
+                    print("-" * 42)
+                    print(f"{{-@ {func} :: {type_prediction} @-}}")
+                # NOTE: Just a random check, cause LH crashes for too long types
+                if len(type_prediction) > len(ground_truths[func]) + 32:
                     if args.print_logs:
-                        print("-" * 42)
-                        print(f"{{-@ {func} :: {type_prediction} @-}}")
+                        print("...UNSAFE")
+                    continue
 
-                    # NOTE: Just a random check, cause LH crashes for too long types
-                    if len(type_prediction) > len(ground_truths[func]) + 32:
-                        if args.print_logs:
-                            print("...UNSAFE")
-                        continue
-
+                with open(join(args.exec_dir, target_file.replace(".hs", "_llm.hs")), "w", encoding="utf-8") as llm_fin:
                     llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {type_prediction} @-}}", fix_prog, 1)
+                    # Remove all other masks and keep the one we want to test for
+                    for mtype in masked_func_types:
+                        if mtype in llm_prog:
+                            llm_prog = re.sub(mtype + r"\s*", "", llm_prog, 1)
                     llm_fin.write(llm_prog)
 
                 cmds = f"cd {args.exec_dir}; "
