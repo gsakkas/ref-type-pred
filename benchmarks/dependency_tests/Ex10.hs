@@ -147,6 +147,10 @@ lemNotElem :: a -> [a] -> Bool
 lemNotElem x []     = True
 lemNotElem x (y:ys) = lemNotElem x ys
 
+{-@ prop_fresh :: _ -> TRUE @-}
+prop_fresh :: [Int] -> Bool
+prop_fresh xs = not $ fresh xs `member` elems xs
+
 {-@ fresh :: <mask_10> @-}
 fresh :: [Int] -> Int
 fresh []     = 0
@@ -155,7 +159,3 @@ fresh (x:xs) = go x [] xs
     go :: Int -> [Int] -> [Int] -> Int
     go x s []     = assert (lemNotElem x s) (x + 1)
     go x s (y:ys) = go (1 + max x y) (x:s) ys
-
-{-@ prop_fresh :: _ -> TRUE @-}
-prop_fresh :: [Int] -> Bool
-prop_fresh xs = not $ fresh xs `member` elems xs

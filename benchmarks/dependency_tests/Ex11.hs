@@ -55,6 +55,9 @@ pack str      = create' n $ \p -> go p xs
   go p (x:xs) = poke p x >> go (plusPtr p 1) xs
   go _ []     = return  ()
 
+{-@ prop_unpack_length :: ByteString -> TRUE @-}
+prop_unpack_length b = bLen b == length (unpack b)
+
 {-@ unpack :: <mask_4> @-}
 unpack :: ByteString -> String
 unpack (BS _ _ 0) = []
@@ -67,9 +70,6 @@ unpack (BS ps s l) = unsafePerformIO
         go'' p n acc = peekAt p n >>= \e -> go'' p (n-1) (w2c e : acc)
         peekAt p n = peek (p `plusPtr` n)
 
-{-@ prop_unpack_length :: ByteString -> TRUE @-}
-prop_unpack_length b = bLen b == length (unpack b)
-
 {-@ unsafeTake :: <mask_6> @-}
 unsafeTake :: Int -> ByteString -> ByteString
 unsafeTake n (BS x s _) = BS x s n
@@ -78,6 +78,11 @@ unsafeTake n (BS x s _) = BS x s n
 unsafeDrop :: Int -> ByteString -> ByteString
 unsafeDrop n (BS x s l) = BS x (s + n) (l - n)
 
+{-@ prop_chop_length :: String -> Nat -> TRUE @-}
+prop_chop_length s n
+  | n <= length s = length (chop s n) == n
+  | otherwise     = True
+
 {-@ chop :: <mask_8> @-}
 chop :: String -> Int -> String
 chop s n = s'
@@ -85,11 +90,6 @@ chop s n = s'
         b = pack s
         b' = unsafeTake n b
         s' = unpack b'
-
-{-@ prop_chop_length :: String -> Nat -> TRUE @-}
-prop_chop_length s n
-  | n <= length s = length (chop s n) == n
-  | otherwise     = True
 
 {-@ empty :: ByteStringN 0 @-}
 empty = pack ""
