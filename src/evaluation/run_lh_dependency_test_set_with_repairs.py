@@ -144,11 +144,22 @@ def run_tests(path, args):
                     continue
 
                 with open(join(args.exec_dir, target_file.replace(".hs", "_llm.hs")), "w", encoding="utf-8") as llm_fin:
-                    llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {type_prediction} @-}}", fix_prog, 1)
-                    # Remove all other masks and keep the one we want to test for
+                    tp = type_prediction
+                    # NOTE: need to take care of possible '\f ->' in predicted types
+                    # '\\'s are evaluated to one '\' when writing in file, so we need to add another one
+                    if "\\" in type_prediction:
+                        tp = type_prediction.replace("\\", "\\\\")
+                    llm_prog = re.sub(masked_type, f"{{-@ {func} :: {tp} @-}}", bad_prog, 1)
+                    # Ignore all other masks and keep the one we want to test for
                     for mtype in masked_func_types:
                         if mtype in llm_prog:
-                            llm_prog = re.sub(mtype + r"\s*", "", llm_prog, 1)
+                            ignore_func = mtype.split()[1].strip()
+                            llm_prog = re.sub(mtype + r"\s*", f"{{-@ ignore {ignore_func} @-}}\n", llm_prog, 1)
+                    # Remove properties that can't be used yet
+                    prog_parts = llm_prog.split(f"{{-@ {func} :: {type_prediction} @-}}")
+                    if "prop_" in prog_parts[1]:
+                        prog_parts[1] = re.sub(r"{-@\s*?prop_[\s\S]*?::[\s\S]*?@-}\n", "", prog_parts[1])
+                        llm_prog = f"{{-@ {func} :: {type_prediction} @-}}".join(prog_parts)
                     llm_fin.write(llm_prog)
 
                 cmds = f"cd {args.exec_dir}; "
