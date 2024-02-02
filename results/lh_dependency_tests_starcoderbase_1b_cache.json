@@ -166,7 +166,7 @@
     ],
     "Ex11.hs--create'": [
         "n:Nat -> f:(Ptr a -> IO ()) -> ByteString2 B",
-        "n:Nat -> {f:(Ptr Word8 -> IO a) | \\\\f = mallocForeignPtrBytes n}",
+        "n:Nat -> {f:(Ptr Word8 -> IO a) | \\f = mallocForeignPtrBytes n}",
         "n:{Nat | 0 < n} -> {v:Nat -> IO ()} -> ByteStringN n",
         "n:Nat -> {v:a | 0 < n} -> ByteStringN n",
         "n:Nat -> {v:Ptr Word8 | 0 < plen v}",
