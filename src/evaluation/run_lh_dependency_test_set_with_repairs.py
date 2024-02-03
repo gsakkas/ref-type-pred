@@ -4,7 +4,7 @@ from os import listdir
 import json
 import re
 import subprocess as subp
-from predict.get_starcoder_code_suggestions import get_starcoder_code_suggestions
+from predict.get_starcoder_code_suggestions import StarCoderModel
 
 def get_args():
     parser = argparse.ArgumentParser(description='run_dependency_lh_tests')
@@ -49,14 +49,14 @@ def make_prompt_from_masked_code(badp, mask_id, masked_types, filename):
     return prompt
 
 
-def get_type_predictions(prompt, key, msk_id, args):
+def get_type_predictions(prompt, key, msk_id, llm, args):
     print("-" * 42)
     print(f"New type predictions for {key}")
     print("-> LLM generation...", flush=True)
     # NOTE: The deeper we are in the loop, get more predictions
     # in order to avoid backtracking and potentially removing a correct earlier type
     # Potentially, can be done differently, i.e. generate more when failing
-    prog_preds = get_starcoder_code_suggestions(prompt, min(args.max_preds, args.total_preds + msk_id * 2))
+    prog_preds = llm.get_code_suggestions(prompt, min(args.max_preds, args.total_preds + msk_id * 2))
     prog_preds = list(set(prog_preds))
     print(f"-> {len(prog_preds)} unique predicted types", flush=True)
     return prog_preds
@@ -87,7 +87,7 @@ def replace_type_with_pred(func, pred, prog, all_mtypes):
 
 
 def restore_mask_at_id(m_id, func, prog):
-    # print(f"Restored {func} :: <mask_{m_id}>")
+    print(f"Restored {func} :: <mask_{m_id}>")
     llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: <mask_{m_id}> @-}}", prog, 1)
     return llm_prog
 
@@ -107,7 +107,9 @@ def lh_verifies_prog(prog, target_file, args):
         llm_fin.write(prog)
 
     solved = False
-    cmds = f"cd {args.exec_dir}; "
+    cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
+    cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
+    cmds += f"cd {args.exec_dir}; "
     cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {target_file.replace('.hs', '_llm.hs')}"
     test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
     result = test_output.stdout.decode('utf-8').strip()
@@ -129,6 +131,9 @@ def run_tests(path, args):
     masks_per_exer = {k: 0 for k in set(difficulties.keys())}
     correct_llm_types_per_exer = {k: 0 for k in set(difficulties.keys())}
     deepest_correct_type_id = {k: 0 for k in set(difficulties.keys())}
+
+    # Load (finetuned) code LLM
+    code_llm = StarCoderModel()
 
     for target_file in sorted(listdir(path)):
         if not target_file.startswith("Ex") or "_correct" in target_file:
@@ -158,6 +163,9 @@ def run_tests(path, args):
         llm_prog = bad_prog
         mask_id = 1
         while mask_id <= masks_per_exer[target_file]:
+            if mask_id == 0:
+                print("Backtracked to start; Exiting...", flush=True)
+                break
             masked_type = masked_func_types[mask_id-1]
             func = masked_type.split()[1].strip()
             print("=" * 42)
@@ -167,9 +175,10 @@ def run_tests(path, args):
                 have_tested_type[key] = set()
             solved = False
             prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
-            mtype_preds = get_type_predictions(prompt, key, mask_id-1, args)
+            mtype_preds = get_type_predictions(prompt, key, mask_id-1, code_llm, args)
             if key in type_preds_cache:
-                preds, num_of_preds = type_preds_cache[key]
+                preds = type_preds_cache[key][0][:] # It's a list so we need deepcopy
+                num_of_preds = type_preds_cache[key][1]
                 preds.extend(mtype_preds)
                 preds = list(set(preds))
                 num_of_preds += args.total_preds
@@ -177,9 +186,23 @@ def run_tests(path, args):
                 # If we have generated too many types for this function
                 # or the LLM can't generate any new ones, then exit here
                 if num_of_preds > args.max_preds:
-                    break
+                    print("Too many predictions...", flush=True)
+                    mask_id -= 1
+                    if mask_id > 0:
+                        print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                        correct_llm_types_per_exer[target_file] -= 1
+                        llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
+                        llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
+                    continue
                 if len(preds) == len(type_preds_cache[key][0]):
-                    break
+                    print("No new predictions...", flush=True)
+                    mask_id -= 1
+                    if mask_id > 0:
+                        print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                        correct_llm_types_per_exer[target_file] -= 1
+                        llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
+                        llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
+                    continue
                 type_preds_cache[key] = preds, num_of_preds
             else:
                 type_preds_cache[key] = mtype_preds, args.total_preds
@@ -214,11 +237,8 @@ def run_tests(path, args):
                 if mask_id > 0:
                     print(f"Backtracking to mask id = {mask_id}...", flush=True)
                     correct_llm_types_per_exer[target_file] -= 1
-                    llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
+                    llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
                     llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
-                else:
-                    print("Backtracked to start; Exiting...", flush=True)
-                    break
             llm_prog = restore_ignored_masks(masked_func_types, llm_prog)
 
         if correct_llm_types_per_exer[target_file] == masks_per_exer[target_file]:
