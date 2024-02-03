@@ -78,9 +78,21 @@ def replace_type_with_pred(func, pred, prog, all_mtypes):
     prog_parts = llm_prog.split(f"{{-@ {func} :: {pred} @-}}")
     if "prop_" in prog_parts[1]:
         prog_parts[1] = re.sub(r"{-@\s*?prop_", "{-- prop_", prog_parts[1])
+    if "example_" in prog_parts[1]:
+        prog_parts[1] = re.sub(r"{-@\s*?example_", "{-- example_", prog_parts[1])
+    if "test_" in prog_parts[1]:
+        prog_parts[1] = re.sub(r"{-@\s*?test_", "{-- test_", prog_parts[1])
+    if "ok" in prog_parts[1]:
+        prog_parts[1] = re.sub(r"{-@\s*?ok", "{-- ok", prog_parts[1])
     # Enable any properties that can be used now
     if "prop_" in prog_parts[0]:
         prog_parts[0] = prog_parts[0].replace("{-- prop_", "{-@ prop_")
+    if "example_" in prog_parts[0]:
+        prog_parts[0] = prog_parts[0].replace("{-- example_", "{-@ example_")
+    if "test_" in prog_parts[0]:
+        prog_parts[0] = prog_parts[0].replace("{-- test_", "{-@ test_")
+    if "ok" in prog_parts[0]:
+        prog_parts[0] = prog_parts[0].replace("{-- ok", "{-@ ok")
 
     llm_prog = f"{{-@ {func} :: {pred} @-}}".join(prog_parts)
     return llm_prog
@@ -174,38 +186,35 @@ def run_tests(path, args):
             if key not in have_tested_type:
                 have_tested_type[key] = set()
             solved = False
-            prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
-            mtype_preds = get_type_predictions(prompt, key, mask_id-1, code_llm, args)
-            if key in type_preds_cache:
-                preds = type_preds_cache[key][0][:] # It's a list so we need deepcopy
-                num_of_preds = type_preds_cache[key][1]
-                preds.extend(mtype_preds)
-                preds = list(set(preds))
-                num_of_preds += args.total_preds
-                # NOTE: Exit criteria for the backtracking loop
-                # If we have generated too many types for this function
-                # or the LLM can't generate any new ones, then exit here
-                if num_of_preds > args.max_preds:
-                    print("Too many predictions...", flush=True)
-                    mask_id -= 1
-                    if mask_id > 0:
-                        print(f"Backtracking to mask id = {mask_id}...", flush=True)
-                        correct_llm_types_per_exer[target_file] -= 1
-                        llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
-                        llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
-                    continue
-                if len(preds) == len(type_preds_cache[key][0]):
-                    print("No new predictions...", flush=True)
-                    mask_id -= 1
-                    if mask_id > 0:
-                        print(f"Backtracking to mask id = {mask_id}...", flush=True)
-                        correct_llm_types_per_exer[target_file] -= 1
-                        llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
-                        llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
-                    continue
-                type_preds_cache[key] = preds, num_of_preds
-            else:
-                type_preds_cache[key] = mtype_preds, args.total_preds
+            # NOTE: Exit criteria for the backtracking loop
+            # If we have generated too many types for this function, then go back
+            if key in type_preds_cache and type_preds_cache[key][1] >= args.max_preds:
+                print(f"Reached limit of predictions ({type_preds_cache[key][1]} >= {args.max_preds}); Exiting...", flush=True)
+                break
+            if key not in type_preds_cache or len(have_tested_type[key]) >= len(type_preds_cache[key][0]):
+                prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
+                mtype_preds = get_type_predictions(prompt, key, mask_id-1, code_llm, args)
+                if key in type_preds_cache:
+                    preds = type_preds_cache[key][0][:] # It's a list so we need deepcopy
+                    num_of_preds = type_preds_cache[key][1]
+                    preds.extend(mtype_preds)
+                    preds = list(set(preds))
+                    num_of_preds += args.total_preds
+                    # NOTE: Exit criteria for the backtracking loop
+                    # If the LLM can't generate any new types, then go back
+                    if len(preds) == len(type_preds_cache[key][0]):
+                        print("No new predictions...", flush=True)
+                        mask_id -= 1
+                        if mask_id > 0:
+                            print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                            correct_llm_types_per_exer[target_file] -= 1
+                            llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
+                            llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
+                            have_tested_type[key] = set() # Clear tested types to retry with the new types above
+                        continue
+                    type_preds_cache[key] = preds, num_of_preds
+                else:
+                    type_preds_cache[key] = mtype_preds, args.total_preds
 
             for type_prediction in type_preds_cache[key][0]:
                 if type_prediction in have_tested_type[key]:
@@ -233,12 +242,13 @@ def run_tests(path, args):
                 mask_id += 1
             else:
                 print(f"{func} --> UNSAFE", flush=True)
-                mask_id -= 1
-                if mask_id > 0:
-                    print(f"Backtracking to mask id = {mask_id}...", flush=True)
-                    correct_llm_types_per_exer[target_file] -= 1
-                    llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
-                    llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
+                llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
+                # mask_id -= 1
+                # if mask_id > 0:
+                #     print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                #     correct_llm_types_per_exer[target_file] -= 1
+                #     llm_prog = restore_mask_at_id(mask_id+1, func, llm_prog)
+                #     llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id-1].split()[1].strip(), llm_prog)
             llm_prog = restore_ignored_masks(masked_func_types, llm_prog)
 
         if correct_llm_types_per_exer[target_file] == masks_per_exer[target_file]:
