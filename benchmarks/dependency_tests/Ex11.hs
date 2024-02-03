@@ -18,6 +18,7 @@ import Data.Word
 {-@ assume poke :: Ptr a -> a -> IO () @-}
 {-@ assume peek :: OkPtr a -> IO a @-}
 {-@ assume plusPtr :: p:Ptr a -> off:Nat -> v:{PtrN b {plen p - off} | 0 < plen v} @-}
+{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 
 {-@ peekByteOff :: <mask_1> @-}
 peekByteOff :: (Storable a) => Ptr a -> Int -> IO a
@@ -36,7 +37,6 @@ data ByteString = BS { bPtr :: ForeignPtr Word8,
                        bLen :: !Int}
 
 {-@ type ByteStringN N = {v:ByteString | bLen v = N} @-}
-{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 {-@ type ByteString2 B = {v:_ | bLen (fst v) + bLen (snd v) = bLen B} @-}
 
 {-@ create' :: <mask_2> @-}

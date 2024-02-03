@@ -13,6 +13,7 @@ import Data.Word
 
 {-@ type TRUE = {v:Bool | v} @-}
 {-@ type FALSE = {v:Bool | not v} @-}
+{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 
 {-@ assume mallocForeignPtrBytes :: n:Nat -> IO (ForeignPtrN a n) @-}
 {-@ assume poke :: Ptr a -> a -> IO () @-}
@@ -36,7 +37,6 @@ data ByteString = BS { bPtr :: ForeignPtr Word8,
                        bLen :: !Int}
 
 {-@ type ByteStringN N = {v:ByteString | bLen v = N} @-}
-{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 {-@ type ByteString2 B = {v:_ | bLen (fst v) + bLen (snd v) = bLen B} @-}
 
 {-@ create' :: n:Nat -> (PtrN Word8 n -> IO ()) -> ByteStringN n @-}
