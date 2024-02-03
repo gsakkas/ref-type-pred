@@ -7,7 +7,8 @@ pip install --upgrade pip
 pip install --upgrade huggingface_hub
 pip install -r src/requirements.txt
 curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
-source /home/gsakkas/.ghcup/env
+source /home/gsakkas/.ghcup/env # for local Haskell installation
+export PATH=$PATH:/home/gsakkas/usr/bin # for local Z3 installation
 export OPENAI_KEY="dummy"
 export PYTHONPATH=$PYTHONPATH:/home/gsakkas/Documents/UCSD/Program-Analytics/ref-type-pred/src
 huggingface-cli login --token dummy # TODO: change dummy with actual token
