@@ -25,11 +25,6 @@ nil = SL 0 []
 cons :: a -> SList a -> SList a
 cons x (SL n xs) = SL (n+1) (x:xs)
 
-{-@ hd :: <mask_2> @-}
-hd :: SList a -> a
-hd (SL _ (x:_)) = x
-hd _ = die "empty SList"
-
 {-@ test_hd_1 :: String @-}
 test_hd_1 = hd (SL 1 ["cat"])
 test_hd_1' = hd (SL 1 ["cat"]) == "cat"
@@ -41,10 +36,10 @@ test_hd_2 = hd (SL 2 ["cat", "dog"])
 -- test_hd_3 = hd (SL 0 [])
 -- test_hd_3' = hd (SL 0 []) == undefined
 
-{-@ tl :: <mask_3> @-}
-tl :: SList a -> SList a
-tl (SL n (_:xs)) = SL (n-1) xs
-tl _ = die "empty SList"
+{-@ hd :: <mask_2> @-}
+hd :: SList a -> a
+hd (SL _ (x:_)) = x
+hd _ = die "empty SList"
 
 {-@ test_tl_1 :: SListN String 0 @-}
 test_tl_1 = tl (SL 1 ["cat"])
@@ -57,6 +52,11 @@ test_tl_2' = tl (SL 2 ["cat", "dog"]) == SL 1 ["dog"]
 -- {-@ test_tl_3 :: {v:_ | false} @-}
 -- test_tl_3 = tl (SL 0 [])
 -- test_tl_3' = tl (SL 0 []) == undefined
+
+{-@ tl :: <mask_3> @-}
+tl :: SList a -> SList a
+tl (SL n (_:xs)) = SL (n-1) xs
+tl _ = die "empty SList"
 
 {-@ data Queue a = Q {front :: SList a, back :: SListLE a (size front)} @-}
 data Queue a = Q { front :: SList a, back :: SList a} deriving (Show, Eq)
@@ -82,10 +82,6 @@ makeq f b
 emp :: Queue a
 emp = Q nil nil
 
-{-@ remove :: <mask_6> @-}
-remove :: Queue a -> (a, Queue a)
-remove (Q f b) = (hd f, makeq (tl f) b)
-
 {-@ example_remove_1 :: QueueN _ 2 @-}
 example_remove_1 :: Queue Int
 example_remove_1 = Q (SL 2 [1, 2]) (SL 0 [])
@@ -99,9 +95,24 @@ test2 = remove example_remove_2 == (1, Q (SL 1 [2]) (SL 1 [3]))
 -- {-@ test3 :: {v:_ | false} @-}
 -- test3 = remove emp == undefined
 
+{-@ remove :: <mask_6> @-}
+remove :: Queue a -> (a, Queue a)
+remove (Q f b) = (hd f, makeq (tl f) b)
+
 {-@ insert :: <mask_7> @-}
 insert :: a -> Queue a -> Queue a
 insert e (Q f b) = makeq f (e `cons` b)
+
+{-@ example_take_1 :: QueueN _ 3 @-}
+example_take_1 = Q (SL 3 ["alice","bob","nal"]) (SL 0 [])
+
+{-@ test_take1 :: (QueueN _ 2, QueueN _ 1) @-}
+test_take1 = take 2 example_take_1
+test1' = test_take1 == (Q (SL 1 ["bob"]) (SL 1 ["alice"]), Q (SL 1 ["nal"]) (SL 0 []))
+
+{-@ test_take2 :: (QueueN _ 3, QueueN _ 0) @-}
+test_take2 = take 3 example_take_1
+test2' = test_take2 == (Q (SL 3 ["nal", "bob", "alice"]) (SL 0 []), Q (SL 0 []) (SL 0 []))
 
 {-@ take :: <mask_8> @-}
 take :: Int -> Queue a -> (Queue a, Queue a)
@@ -110,14 +121,3 @@ take n q = (insert x out , q'')
     where
         (x , q') = remove q
         (out, q'') = take (n-1) q'
-
-{-@ example_take_1 :: QueueN _ 3 @-}
-example_take_1 = Q (SL 3 ["alice","bob","nal"]) (SL 0 [])
-
-{-@ okTake1 :: (QueueN _ 2, QueueN _ 1) @-}
-okTake1 = take 2 example_take_1
-test1' = okTake1 == (Q (SL 1 ["bob"]) (SL 1 ["alice"]), Q (SL 1 ["nal"]) (SL 0 []))
-
-{-@ okTake2 :: (QueueN _ 3, QueueN _ 0) @-}
-okTake2 = take 3 example_take_1
-test2' = okTake2 == (Q (SL 3 ["nal", "bob", "alice"]) (SL 0 []), Q (SL 0 []) (SL 0 []))

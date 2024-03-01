@@ -13,14 +13,14 @@ import Data.Word
 
 {-@ type TRUE = {v:Bool | v} @-}
 {-@ type FALSE = {v:Bool | not v} @-}
+{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 
 {-@ assume mallocForeignPtrBytes :: n:Nat -> IO (ForeignPtrN a n) @-}
 {-@ assume poke :: Ptr a -> a -> IO () @-}
 {-@ assume peek :: OkPtr a -> IO a @-}
 {-@ assume plusPtr :: p:Ptr a -> off:Nat -> v:{PtrN b {plen p - off} | 0 < plen v} @-}
-{-@ type OkPtr a = {v:Ptr a | 0 < plen v} @-}
 
-{-@ peekByteOff :: <mask_1> @-}
+{-@ peekByteOff :: OkPtr a -> Nat -> IO a @-}
 peekByteOff :: (Storable a) => Ptr a -> Int -> IO a
 peekByteOff p i = peek (plusPtr p i)
 
@@ -39,14 +39,14 @@ data ByteString = BS { bPtr :: ForeignPtr Word8,
 {-@ type ByteStringN N = {v:ByteString | bLen v = N} @-}
 {-@ type ByteString2 B = {v:_ | bLen (fst v) + bLen (snd v) = bLen B} @-}
 
-{-@ create' :: <mask_2> @-}
+{-@ create' :: <mask_1> @-}
 create' :: Int -> (Ptr Word8 -> IO ()) -> ByteString
 create' n fill = unsafePerformIO $ do
   fp  <- mallocForeignPtrBytes n
   withForeignPtr fp fill
   return (BS fp 0 n)
 
-{-@ pack :: <mask_3> @-}
+{-@ pack :: <mask_2> @-}
 pack :: String -> ByteString
 pack str      = create' n $ \p -> go p xs
   where
@@ -58,23 +58,23 @@ pack str      = create' n $ \p -> go p xs
 {-@ prop_unpack_length :: ByteString -> TRUE @-}
 prop_unpack_length b = bLen b == length (unpack b)
 
-{-@ unpack :: <mask_4> @-}
+{-@ unpack :: <mask_3> @-}
 unpack :: ByteString -> String
 unpack (BS _ _ 0) = []
 unpack (BS ps s l) = unsafePerformIO
                         $ withForeignPtr ps
                         $ \p -> go'' (p `plusPtr` s) (l - 1) []
     where
-        {-@ go'' :: <mask_5> @-}
+        {-@ go'' :: p:{_ | 0 < plen p} -> n:_ -> acc:{_ | len acc <= plen p - n} -> IO {v:_ | len v = len acc + 1 + n } @-}
         go'' p 0 acc = peekAt p 0 >>= \e -> return (w2c e : acc)
         go'' p n acc = peekAt p n >>= \e -> go'' p (n-1) (w2c e : acc)
         peekAt p n = peek (p `plusPtr` n)
 
-{-@ unsafeTake :: <mask_6> @-}
+{-@ unsafeTake :: <mask_4> @-}
 unsafeTake :: Int -> ByteString -> ByteString
 unsafeTake n (BS x s _) = BS x s n
 
-{-@ unsafeDrop :: <mask_7> @-}
+{-@ unsafeDrop :: <mask_5> @-}
 unsafeDrop :: Int -> ByteString -> ByteString
 unsafeDrop n (BS x s l) = BS x (s + n) (l - n)
 
@@ -83,7 +83,7 @@ prop_chop_length s n
   | n <= length s = length (chop s n) == n
   | otherwise     = True
 
-{-@ chop :: <mask_8> @-}
+{-@ chop :: <mask_6> @-}
 chop :: String -> Int -> String
 chop s n = s'
     where
@@ -91,10 +91,10 @@ chop s n = s'
         b' = unsafeTake n b
         s' = unpack b'
 
-{-@ empty :: ByteStringN 0 @-}
+{-@ empty :: <mask_7> @-}
 empty = pack ""
 
-{-@ spanByte :: <mask_9> @-}
+{-@ spanByte :: <mask_8> @-}
 spanByte :: Word8 -> ByteString -> (ByteString, ByteString)
 spanByte c ps@(BS x s ln)
     = unsafePerformIO $ withForeignPtr x $ \p -> go (p `plusPtr` s) 0

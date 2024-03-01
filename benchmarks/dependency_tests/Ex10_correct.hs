@@ -86,6 +86,10 @@ lemNotMem key (Node _ _ l r) = lemNotMem key l && lemNotMem key r
 
 assert _ x = x
 
+{-@ prop_mem :: _ -> _ -> TRUE @-}
+prop_mem :: (Ord k) => k -> Map k v -> Bool
+prop_mem k m = not (k `member` keys m) || (k `mem` m)
+
 {-@ mem :: (Ord k) => k:k -> m:Map k v
                    -> {v:_ | v <=> HasKey k m} @-}
 mem :: Ord k => k -> Map k v -> Bool
@@ -94,10 +98,6 @@ mem k' (Node k _ l r)
   | k' <  k   = assert (lemNotMem k' r) (mem k' l)
   | otherwise = assert (lemNotMem k' l) (mem k' r)
 mem _ Tip     = False
-
-{-@ prop_mem :: _ -> _ -> TRUE @-}
-prop_mem :: (Ord k) => k -> Map k v -> Bool
-prop_mem k m = not (k `member` keys m) || (k `mem` m)
 
 {-@ get :: (Ord k) => k:k -> m:{Map k v | HasKey k m} -> v @-}
 get :: (Ord k) => k -> Map k v -> v

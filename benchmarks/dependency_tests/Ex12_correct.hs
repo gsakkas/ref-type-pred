@@ -189,14 +189,6 @@ getMin (Node x l r _)    = (x', bal x l' r)
     (x', l') = getMin l
 getMin Leaf = die "impossilbe for Leaf"
 
-{-@ merge :: x:a -> l:AVLL a x -> r:{AVLR a x | isBal l r 1} -> {t:AVL a | bigHt l r t} @-}
-merge :: a -> AVL a -> AVL a -> AVL a
-merge _ Leaf r = r
-merge _ l Leaf = l
-merge x l r = bal y l r'
-    where
-        (y, r') = getMin r
-
 {-@ insert :: a -> s:AVL a -> {t: AVL a | eqOrUp s t} @-}
 insert :: (Ord a) => a -> AVL a -> AVL a
 insert a t@(Node v l r n)
@@ -204,6 +196,14 @@ insert a t@(Node v l r n)
     | a > v     = bal v l (insert a r)
     | otherwise = t
 insert a Leaf = singleton a
+
+{-@ merge :: x:a -> l:AVLL a x -> r:{AVLR a x | isBal l r 1} -> {t:AVL a | bigHt l r t} @-}
+merge :: a -> AVL a -> AVL a -> AVL a
+merge _ Leaf r = r
+merge _ l Leaf = l
+merge x l r = bal y l r'
+    where
+        (y, r') = getMin r
 
 {-@ delete :: a -> s:AVL a -> {t:AVL a | eqOrDn s t} @-}
 delete :: (Ord a) => a -> AVL a -> AVL a
