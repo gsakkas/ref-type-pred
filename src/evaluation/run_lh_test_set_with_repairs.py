@@ -175,6 +175,8 @@ for k in list(cache.keys()):
                 llm_repair = llm_repair.split("@-}")[0].rstrip()
             if "\\" in llm_repair:
                 llm_repair = llm_repair.replace("\\", "\\\\")
+            if "<file_sep>" in llm_repair:
+                llm_repair = llm_repair.split("<file_sep>")[0]
             if llm_repair in seen_repairs:
                 continue
             seen_repairs.add(llm_repair)
@@ -190,16 +192,20 @@ for k in list(cache.keys()):
                     print("UNSAFE")
                 continue
 
+            llm_prog = fix_prog
             if MASK_ONLY_POST_COND:
                 return_type = ground_truth[0].split("->")[-1].strip()
                 pre_cond = ' -> '.join([typ.strip() for typ in ground_truth[0].split("->")[:-1]])
                 llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {pre_cond} -> {llm_repair} @-}}", fix_prog, 1)
             else:
                 llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {llm_repair} @-}}", fix_prog, 1)
-            # print(llm_prog)
             llm_fin.write(llm_prog)
+            # print(llm_prog, flush=True)
 
-        cmds = f"cd {args.data_dir}; "
+        cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
+        cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
+        cmds += f"cd {args.data_dir}; "
+        cmds += f"rm {bfile}_llm.hi; "
         cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {bfile}_llm.hs"
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stdout.decode('utf-8').strip()
@@ -209,16 +215,16 @@ for k in list(cache.keys()):
             llm_repairs_per_func[func] += 1
             llm_repairs_per_exer[exercise] += 1
             if args.print_preds:
-                print("SAFE")
+                print("SAFE", flush=True)
             break
         if args.print_preds:
-            print("UNSAFE")
-    print(f"{len(seen_repairs)} unique repairs")
+            print("UNSAFE", flush=True)
+    print(f"{len(seen_repairs)} unique repairs", flush=True)
     if llm_repairs_per_func[func] > 0:
         print("--> SAFE")
     else:
         print("--> UNSAFE")
-    print("--------------------------------------")
+    print("--------------------------------------", flush=True)
 
 
 print("============================================================")
