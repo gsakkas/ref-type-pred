@@ -12,8 +12,8 @@ from os.path import exists, join
 
 import deepspeed
 
-import predict.get_llm_code_suggestions as codex
-from predict.get_starcoder_code_suggestions import get_starcoder_code_suggestions
+import get_llm_code_suggestions as codex
+from get_starcoder_code_suggestions import StarCoderModel
 
 TIMEOUT = 60 * 30
 
@@ -44,9 +44,8 @@ def rate(secs, times):
 
 
 @timeout(TIMEOUT)
-def llm_instruct_prompt_prediction(orig_prg, cmd_args, cache_key=None, cache=None):
+def llm_instruct_prompt_prediction(orig_prg, cmd_args, llm, cache_key=None, cache=None):
     """ Use LLM to fix runtime error using chat prompt """
-    llm = cmd_args.llm # NOTE: Which LLM to use as a backend
     candidate_progs = [orig_prg]
     seen_progs = []
     seen_progs.extend([orig_prg])
@@ -55,13 +54,13 @@ def llm_instruct_prompt_prediction(orig_prg, cmd_args, cache_key=None, cache=Non
     for _ in range(cmd_args.max_cost):
         for prog in candidate_progs:
             prompt = prog
-            key = orig_prg + "<<break>>" + prompt + "<<break>>" + llm + "<<break>>" + str(cmd_args.total_repairs) + "<<break>>" + str(cmd_args.total_repairs)
+            key = orig_prg + "<<break>>" + prompt + "<<break>>" + cmd_args.llm + "<<break>>" + str(cmd_args.total_repairs) + "<<break>>" + str(cmd_args.total_repairs)
             if cache_key:
                 key = cache_key
             if cmd_args.use_cache and key in cache and cache[key] != []:
                 prog_repairs = cache[key]
-            elif "starcoder" in llm:
-                prog_repairs = get_starcoder_code_suggestions(prompt, cmd_args.total_repairs)
+            elif "starcoder" in cmd_args.llm:
+                prog_repairs = llm.get_code_suggestions(prompt, cmd_args.total_repairs)
             else:
                 prog_repairs = codex.get_codex_code_suggestions_from_chat(prompt, 256, cmd_args.total_repairs)
             list_of_repaired_progs.extend(prog_repairs)
@@ -74,18 +73,22 @@ def llm_instruct_prompt_prediction(orig_prg, cmd_args, cache_key=None, cache=Non
     return list(set(list_of_repaired_progs))
 
 
-def get_predictions(cmd_args, cache, tup):
+def get_predictions(cmd_args, llm, cache, tup):
     dct = json.loads(tup)
     # NOTE: We don't want to keep track of Codex API waits, so we use `process_time`
     start_time = time.process_time()
     orig_bad = dct['bad'].rstrip()
-    list_of_repaired_progs = llm_instruct_prompt_prediction(orig_bad, cmd_args, dct['key'] if 'key' in dct else None, cache)
+    list_of_repaired_progs = llm_instruct_prompt_prediction(orig_bad, cmd_args, llm, dct['key'] if 'key' in dct else None, cache)
     run_time = time.process_time() - start_time
 
     return (run_time, list_of_repaired_progs)
 
 
-def run_llm_generation(cmd_args, results_file):
+def run_llm_generation(cmd_args):
+    if "starcoder" in cmd_args.llm:
+        code_llm = StarCoderModel()
+    else:
+        code_llm = None
     done = 0
     failed = 0
     dataset = []
@@ -102,7 +105,7 @@ def run_llm_generation(cmd_args, results_file):
             cache = json.loads(cf.read())
     # dataset = dataset[::2]
     print("# LH types to predict:", len(dataset))
-    get_predictions_temp = partial(get_predictions, cmd_args, cache)
+    get_predictions_temp = partial(get_predictions, cmd_args, code_llm, cache)
     for sample in dataset:
         try:
             intermediate = get_predictions_temp(sample)
@@ -114,7 +117,7 @@ def run_llm_generation(cmd_args, results_file):
             avg_run_time += run_time
 
             if cmd_args.create_cache_only:
-                if (failed + done) % 5 == 0:
+                if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
                     print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
                 continue
@@ -124,7 +127,7 @@ def run_llm_generation(cmd_args, results_file):
             print('Timer expired!')
             failed += 1
             if cmd_args.create_cache_only:
-                if (failed + done) % 5 == 0:
+                if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
                     print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
                 continue
@@ -136,7 +139,7 @@ def run_llm_generation(cmd_args, results_file):
             traceback.print_tb(err.__traceback__)
             failed += 1
             if cmd_args.create_cache_only:
-                if (failed + done) % 5 == 0:
+                if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
                     print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
                 continue
@@ -185,4 +188,4 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
 
-    run_llm_generation(args, "lh-tutorial-" + args.llm + "-preds-" + str(args.total_repairs) + "-repairs.txt")
+    run_llm_generation(args)
