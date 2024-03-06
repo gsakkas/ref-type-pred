@@ -201,8 +201,9 @@ def run_tests(path, args):
     fixed_progs = 0
     all_progs = 0
     masks_per_exer = {k: 0 for k in set(difficulties.keys())}
-    correct_llm_types_per_exer = {k: 0 for k in set(difficulties.keys())}
+    exit_mask_id = {k: 0 for k in set(difficulties.keys())}
     deepest_correct_type_id = {k: 0 for k in set(difficulties.keys())}
+    total_ground_truths = {k: 0 for k in set(difficulties.keys())}
 
     # Load (finetuned) code LLM
     code_llm = StarCoderModel()
@@ -285,37 +286,35 @@ def run_tests(path, args):
                                 type_preds_cache[key][1] < args.max_preds)):
                 prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
                 mtype_preds = get_type_predictions(prompt, key, func, ground_truths[func], code_llm, args)
+                num_of_preds = args.total_preds
                 if key in type_preds_cache:
-                    preds = type_preds_cache[key][0][:] # It's a list, so we need a deepcopy
-                    num_of_preds = type_preds_cache[key][1]
-                    preds.extend(mtype_preds)
-                    preds = list(set(preds))
-                    num_of_preds += args.total_preds
+                    prev_preds = type_preds_cache[key][0]
+                    mtype_preds.extend(prev_preds)
+                    mtype_preds = list(set(mtype_preds))
+                    num_of_preds += type_preds_cache[key][1]
                     # NOTE: Exit criteria for the backtracking loop
                     # If the LLM can't generate any new types, then try the ground truth type or go back
-                    if len(preds) == len(type_preds_cache[key][0]):
+                    # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
+                    if len(mtype_preds) == len(type_preds_cache[key][0]):
                         print("No new predictions...", flush=True)
-                        if not using_ground_truth[func]:
-                            print(f"Testing the ground truth type, since we can't generate any new...", flush=True)
-                            preds = [ground_truths[func]]
-                            num_of_preds = args.max_preds + 1
-                            using_ground_truth[func] = True
-                            for k in tested_types_num:
-                                tested_types_num[k] = 0
-                            solved = True
-                        else:
-                            llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                            tested_types_num[key] = 0
-                            # We haven't appended a type at the current state stack yet, so no pop() here
-                            mask_id -= 1
-                            if mask_id > 0:
-                                print(f"Backtracking to mask id = {mask_id}...", flush=True)
-                                correct_llm_types_per_exer[target_file] -= 1
-                                llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id].split()[1].strip(), llm_prog)
+                        llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
+                        tested_types_num[key] = 0
+                        # We haven't appended a type at the current state stack yet, so no pop() here
+                        mask_id -= 1
+                        if mask_id > 0:
+                            print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                            exit_mask_id[target_file] -= 1
+                            llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id].split()[1].strip(), llm_prog)
                             continue
-                    type_preds_cache[key] = preds, num_of_preds
-                else:
-                    type_preds_cache[key] = mtype_preds, args.total_preds
+                if len(mtype_preds) > 10 and not using_ground_truth[func]:
+                    print(f"Testing the ground truth type, since we got too many unique predictions...", flush=True)
+                    mtype_preds = [ground_truths[func]]
+                    num_of_preds = args.max_preds + 1
+                    using_ground_truth[func] = True
+                    for k in tested_types_num:
+                        tested_types_num[k] = 0
+                    solved = True
+                type_preds_cache[key] = mtype_preds, num_of_preds
 
             for type_prediction in type_preds_cache[key][0][tested_types_num[key]:]:
                 current_type_state.append(f"{{-@ {func} :: {type_prediction} @-}}")
@@ -324,7 +323,7 @@ def run_tests(path, args):
                     current_type_state.pop()
                     continue
                 total_times_tested[key] += 1
-                if not using_ground_truth[func] and total_times_tested[key] >= 128:
+                if not using_ground_truth[func] and total_times_tested[key] >= 100:
                     current_type_state.pop()
                     print("Too many failures for this type; Testing the ground truth type...")
                     type_preds_cache[key] = [ground_truths[func]], args.max_preds + 1
@@ -356,8 +355,8 @@ def run_tests(path, args):
             print("-" * 42)
             if solved:
                 print(f"{func} --> SAFE", flush=True)
-                correct_llm_types_per_exer[target_file] += 1
-                deepest_correct_type_id[target_file] = max(correct_llm_types_per_exer[target_file], deepest_correct_type_id[target_file])
+                exit_mask_id[target_file] += 1
+                deepest_correct_type_id[target_file] = max(exit_mask_id[target_file], deepest_correct_type_id[target_file])
                 mask_id += 1
             else:
                 print(f"{func} --> UNSAFE", flush=True)
@@ -366,7 +365,7 @@ def run_tests(path, args):
                 if mask_id > 0:
                     print(f"Backtracking to mask id = {mask_id}...", flush=True)
                     tested_types_num[key] = 0
-                    correct_llm_types_per_exer[target_file] -= 1
+                    exit_mask_id[target_file] -= 1
                     llm_prog = restore_mask_at_id(mask_id, masked_func_types[mask_id].split()[1].strip(), llm_prog)
                 elif type_preds_cache[key][1] < args.max_preds:
                     mask_id = 1
@@ -374,20 +373,26 @@ def run_tests(path, args):
                     tested_types_num[key] = len(type_preds_cache[key][0])
             llm_prog = restore_ignored_masks(masked_func_types, llm_prog)
 
-        if correct_llm_types_per_exer[target_file] == masks_per_exer[target_file]:
+        if exit_mask_id[target_file] == masks_per_exer[target_file]:
             fixed_progs += 1
         print("=" * 42)
-        print(f"{correct_llm_types_per_exer[target_file]} / {masks_per_exer[target_file]} types predicted correctly")
-        print(f"{deepest_correct_type_id[target_file]} / {masks_per_exer[target_file]} deepest type predicted correctly")
-        print(tested_types_num)
+        print(f"{exit_mask_id[target_file]} / {masks_per_exer[target_file]} exit location")
+        print(f"{deepest_correct_type_id[target_file]} / {masks_per_exer[target_file]} types predicted correctly")
+        total_ground_truths[target_file] = 0
+        for k in using_ground_truth:
+            if using_ground_truth[k]:
+                total_ground_truths[target_file] += 1
+        print(f"{total_ground_truths[target_file]} ground truth types used")
+        # print(tested_types_num)
 
     print("=" * 42)
     print("=" * 42)
-    for k in sorted(correct_llm_types_per_exer.keys()):
+    for k in sorted(exit_mask_id.keys()):
         print(f">>> Chapter {k[2:].split('.')[0]}")
-        print(f"{correct_llm_types_per_exer[k]} / {masks_per_exer[k]} types predicted correctly")
-        print(f"{correct_llm_types_per_exer[k] * 100 / masks_per_exer[k]:.2f}% prediction accuracy")
-        print(f"{deepest_correct_type_id[k]} / {masks_per_exer[k]} deepest type predicted correctly")
+        print(f"{exit_mask_id[k]} / {masks_per_exer[k]} exit location")
+        print(f"{deepest_correct_type_id[k]} / {masks_per_exer[k]} types predicted correctly")
+        print(f"{deepest_correct_type_id[k] * 100 / masks_per_exer[k]:.2f}% prediction accuracy")
+        print(f"{total_ground_truths[k]} ground truth types used")
         print("-" * 42)
     print("=" * 42)
     print("=" * 42)
