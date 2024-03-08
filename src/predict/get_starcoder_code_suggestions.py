@@ -76,7 +76,7 @@ class StarCoderModel():
                 predictions = self.model.generate(input_ids=input_ids,
                                             pad_token_id=self.tokenizer.eos_token_id,
                                             do_sample=True,
-                                            temperature=0.90,
+                                            temperature=0.98,
                                             top_k=100,
                                             top_p=0.95,
                                             num_return_sequences=local_num_seqs,
