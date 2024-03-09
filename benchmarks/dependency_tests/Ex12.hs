@@ -1,4 +1,4 @@
-module Ex12 (AVL, insert, delete, merge, bal) where
+module Ex12 (AVL, insert, delete, bal) where
 
 {-@ LIQUID "--no-termination" @-}
 
@@ -170,20 +170,20 @@ insert a t@(Node v l r n)
     | otherwise = t
 insert a Leaf = singleton a
 
-{-@ merge :: <mask_12> @-}
-merge :: a -> AVL a -> AVL a -> AVL a
-merge _ Leaf r = r
-merge _ l Leaf = l
-merge x l r = bal y l r'
-    where
-        (y, r') = getMin r
-
-{-@ delete :: <mask_13> @-}
+{-@ delete :: <mask_12> @-}
 delete :: (Ord a) => a -> AVL a -> AVL a
 delete y (Node x l r _)
     | y < x     = bal x (delete y l) r
     | x < y     = bal x l (delete y r)
     | otherwise = merge x l r
+    where
+        {-@ merge :: x:a -> l:AVLL a x -> r:{AVLR a x | isBal l r 1} -> {t:AVL a | bigHt l r t} @-}
+        merge :: a -> AVL a -> AVL a -> AVL a
+        merge _ Leaf r = r
+        merge _ l Leaf = l
+        merge x l r = bal y l r'
+            where
+                (y, r') = getMin r
 delete _ Leaf = Leaf
 
 {-@ isNode :: {t:AVL a | getHeight t > 0} -> _ @-}
