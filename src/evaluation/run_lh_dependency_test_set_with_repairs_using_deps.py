@@ -342,7 +342,7 @@ def run_tests(path, args):
                         print("No new predictions...", flush=True)
                         # Clean up all function depending on this
                         for func_next, deps in reversed(dependencies[target_file].items()):
-                            if func in deps and func_to_mask_id[func_next] not in mask_stack:
+                            if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
                                 mask_stack.append(func_to_mask_id[func_next])
                                 llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
                                 tested_types_num[func_next] = 0
@@ -357,7 +357,7 @@ def run_tests(path, args):
                         untested_types = len(type_preds_cache[f"{target_file}--{next_func}"][0]) - tested_types_num[next_func]
                         next_mask_id = func_to_mask_id[next_func]
                         for func_dep in dependencies[target_file][func]:
-                            if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types:
+                            if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types and not using_ground_truth[func_dep]:
                                 next_mask_id = func_to_mask_id[func_dep]
                                 untested_types = len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep]
                                 next_func = func_dep
@@ -369,7 +369,7 @@ def run_tests(path, args):
                     elif len(mtype_preds) == len(type_preds_cache[key][0]) and mask_id > 1:
                         # Clean up all function depending on this
                         for func_next, deps in reversed(dependencies[target_file].items()):
-                            if func in deps and func_to_mask_id[func_next] not in mask_stack:
+                            if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
                                 mask_stack.append(func_to_mask_id[func_next])
                                 llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
                                 tested_types_num[func_next] = 0
@@ -394,7 +394,8 @@ def run_tests(path, args):
                         using_ground_truth[func] = True
                         tested_types_num[func] = 0
                         for func_dep in dependencies[target_file][func]:
-                            tested_types_num[func_dep] = 0
+                            if not using_ground_truth[func_dep]:
+                                tested_types_num[func_dep] = 0
                         solved = True
                 elif len(mtype_preds) < 5:
                     mtype_preds.extend(get_type_predictions(prompt, key, func, ground_truths[func], code_llm, args))
@@ -450,7 +451,8 @@ def run_tests(path, args):
                         type_prediction = ground_truths[func]
                         tested_types_num[func] = 0
                         for func_dep in dependencies[target_file][func]:
-                            tested_types_num[func_dep] = 0
+                            if not using_ground_truth[func_dep]:
+                                tested_types_num[func_dep] = 0
                         print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                     # for f, t in current_type_state.items():
                     #     if t:
@@ -508,7 +510,7 @@ def run_tests(path, args):
                 if dependencies[target_file][func]:
                     # Clean up all function depending on this
                     for func_next, deps in reversed(dependencies[target_file].items()):
-                        if func in deps and func_to_mask_id[func_next] not in mask_stack:
+                        if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
                             mask_stack.append(func_to_mask_id[func_next])
                             llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
                             tested_types_num[func_next] = 0
@@ -523,7 +525,7 @@ def run_tests(path, args):
                     untested_types = len(type_preds_cache[f"{target_file}--{next_func}"][0]) - tested_types_num[next_func]
                     next_mask_id = func_to_mask_id[next_func]
                     for func_dep in dependencies[target_file][func]:
-                        if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types:
+                        if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types and not using_ground_truth[func_dep]:
                             next_mask_id = func_to_mask_id[func_dep]
                             untested_types = len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep]
                             next_func = func_dep
