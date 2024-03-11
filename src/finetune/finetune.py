@@ -229,10 +229,10 @@ def create_datasets(tokenizer, args):
         train_data = dataset.skip(args.size_valid_set)
         train_data = train_data.shuffle(buffer_size=args.shuffle_buffer, seed=args.seed)
     else:
-        valid_data = dataset.select(range(args.size_valid_set))
-        # valid_data = dataset.select(range(10))
-        train_data = dataset.select(range(args.size_valid_set, dataset.num_rows))
-        # train_data = dataset.select(range(10, 50))
+        valid_data = dataset["validation"]
+        # valid_data = dataset.select(range(args.size_valid_set))
+        train_data = dataset["train"]
+        # train_data = dataset.select(range(args.size_valid_set, dataset.num_rows))
         print(f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}")
 
     chars_per_token = chars_token_ratio(train_data, tokenizer, args.input_column_name, args.output_column_name)
@@ -327,7 +327,7 @@ def run_training(args, train_data, val_data):
 
 
 def main(args):
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path, use_auth_token=True)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path, cache_dir=args.model_dir, use_auth_token=True)
     train_dataset, eval_dataset = create_datasets(tokenizer, args)
     run_training(args, train_dataset, eval_dataset)
 

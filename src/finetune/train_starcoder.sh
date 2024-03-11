@@ -1,9 +1,8 @@
-#!/bin/zsh
+#!/bin/bash
 
-python -W ignore finetune.py\
+python -W ignore src/finetune/finetune.py\
   --model_path="bigcode/starcoderbase-3b"\
-  --dataset_name="lh_train_set_from_the_stack.hf"\
-  --size_valid_set 100\
+  --dataset_name="./benchmarks/lh_training_set_from_the_stack_without_lh_turorial.hf"\
   --seq_length 2048\
   --num_epochs 20\
   --save_freq 100\
@@ -16,7 +15,7 @@ python -W ignore finetune.py\
   --no_gradient_checkpointing\
   --learning_rate 1e-4\
   --lr_scheduler_type="cosine"\
-  --num_warmup_steps 500\
+  --num_warmup_steps 2500\
   --weight_decay 0.05\
-  --output_dir="/tmp3/gsakkas/checkpoints_the_stack_20_epochs"\
+  --output_dir="/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps"\
   --model_dir="/tmp3/gsakkas/huggingface"\
