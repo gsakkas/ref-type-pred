@@ -257,6 +257,7 @@ def run_tests(path, args):
         ground_truths = {}
         masked_func_types = {}
         func_to_mask_id = {}
+        mask_id_to_func = {}
         for masked_type in masked_funcs:
             func = masked_type.split()[1].strip()
             ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)[0].strip()
@@ -264,130 +265,134 @@ def run_tests(path, args):
             mask_id = int(masked_type.split("<mask_")[1].split(">")[0].strip())
             masked_func_types[mask_id] = masked_type
             func_to_mask_id[func] = mask_id
+            mask_id_to_func[mask_id] = func
 
         masks_per_exer[target_file] = len(masked_func_types)
         type_preds_cache = {}
+        num_of_llm_calls = {}
         tested_types_num = {} # To check locally,
         # how many predictions in this current state we've tested for this type (for backtracking)
         total_times_tested = {} # To check globally,
         # how many predictions we've tested for this type (for stopping backtracking and using ground truth)
         using_ground_truth = {}
         current_type_state = {}
+        runs_upper_bound = {}
         for func in ground_truths:
-            key = f"{target_file}--{func}"
             tested_types_num[func] = 0
             total_times_tested[func] = 0
             using_ground_truth[func] = False
             current_type_state[func] = ""
+            runs_upper_bound[func] = min(30, max(11, len(dependencies[target_file][func]) * 10))
+            num_of_llm_calls[func] = 0
         llm_prog = bad_prog
         seen_states = {}
         num_of_iterations = 0
         MAX_ITERATIONS = masks_per_exer[target_file] * 50
         mask_stack = [i for i in range(len(masked_func_types), 0, -1)]
         mask_id = 1
+
+
+        def backtrack_curr_mask(curr_func, curr_mask, llm_prog):
+            # Clean up all functions depending on this
+            for func_next, deps in reversed(dependencies[target_file].items()):
+                if curr_func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
+                    mask_stack.append(func_to_mask_id[func_next])
+                    llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
+                    tested_types_num[func_next] = 0
+                    current_type_state[func_next] = ""
+            # Add failed mask_id to retry later
+            mask_stack.append(curr_mask)
+            llm_prog = restore_mask_at_id(curr_mask, curr_func, llm_prog)
+            current_type_state[curr_func] = ""
+            tested_types_num[curr_func] = 0
+            return llm_prog
+
+
+        def add_least_tested_dependency_in_stack(curr_func, llm_prog):
+            # Add least tested dependency to stack
+            next_func = dependencies[target_file][curr_func][0]
+            untested_types = len(type_preds_cache[next_func]) - tested_types_num[next_func]
+            next_mask_id = func_to_mask_id[next_func]
+            for func_dep in dependencies[target_file][curr_func]:
+                if len(type_preds_cache[func_dep]) - tested_types_num[func_dep] > untested_types and not using_ground_truth[func_dep]:
+                    next_mask_id = func_to_mask_id[func_dep]
+                    untested_types = len(type_preds_cache[func_dep]) - tested_types_num[func_dep]
+                    next_func = func_dep
+            mask_stack.append(next_mask_id)
+            llm_prog = restore_mask_at_id(next_mask_id, next_func, llm_prog)
+            current_type_state[next_func] = ""
+            return llm_prog, next_mask_id
+
+
         while mask_stack:
             mask_id = mask_stack.pop()
             exit_mask_id[target_file] = mask_id
+            # NOTE: Exit criteria for the backtracking loop
+            # If we reached back to entry point with backtracking
             if mask_id == 0:
                 print("Backtracked to start; Exiting...", flush=True)
                 break
-            # for mid in reversed(mask_stack):
-            #     temp_1 = masked_func_types[mid]
-            #     temp_2 = temp_1.split()[1].strip()
-            #     print(f"|{temp_2}|")
-            num_of_iterations += 1
+            # If we have generated too many types for all functions
+            if all(num_of_llm_calls[f] >= args.max_preds for f in num_of_llm_calls):
+                print(f"Reached limit of predictions ({num_of_llm_calls[func]} >= {args.max_preds}); Exiting...", flush=True)
+                break
+            # If we had too many iteratin with the whole loop
             if num_of_iterations >= MAX_ITERATIONS:
                 print(f"Too many iterations {num_of_iterations}; Exiting...", flush=True)
                 break
+            # for mid in reversed(mask_stack):
+            #     foo = mask_id_to_func[mid]
+            #     print(f"|{temp_2}|")
+            num_of_iterations += 1
 
-            masked_type = masked_func_types[mask_id]
-            func = masked_type.split()[1].strip()
+            func = mask_id_to_func[mask_id]
             print("=" * 42)
             print(f"Solving {target_file} ({func})...", flush=True)
             key = f"{target_file}--{func}"
             solved = False
             llm_prog = restore_ignored_masks(masked_func_types, llm_prog)
-            # NOTE: Exit criteria for the backtracking loop
-            # If we have generated too many types for this function
-            if key in type_preds_cache and type_preds_cache[key][1] >= args.max_preds:
-                # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-                if not using_ground_truth[func]:
-                    print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
-                    type_preds_cache[key] = [ground_truths[func]], args.max_preds + 1
-                    using_ground_truth[func] = True
-                    tested_types_num[func] = 0
-                    for func_dep in dependencies[target_file][func]:
-                        tested_types_num[func_dep] = 0
-                    solved = True
-                elif all(type_preds_cache[key][1] >= args.max_preds for key in type_preds_cache):
-                    # Else just exit the loop
-                    print(f"Reached limit of predictions ({type_preds_cache[key][1]} >= {args.max_preds}); Exiting...", flush=True)
-                    break
-            if not using_ground_truth[func] and \
-                (key not in type_preds_cache or
-                (tested_types_num[func] >= len(type_preds_cache[key][0]) and
-                    type_preds_cache[key][1] < args.max_preds)):
+            # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
+            if func in type_preds_cache and num_of_llm_calls[func] >= args.max_preds and not using_ground_truth[func]:
+                print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
+                type_preds_cache[func] = [ground_truths[func]]
+                num_of_llm_calls[func] = args.max_preds + 1
+                using_ground_truth[func] = True
+                tested_types_num[func] = 0
+                for func_dep in dependencies[target_file][func]:
+                    tested_types_num[func_dep] = 0
+                solved = True
+            elif not using_ground_truth[func] and \
+                (func not in type_preds_cache or
+                (tested_types_num[func] >= len(type_preds_cache[func]) and
+                    num_of_llm_calls[func] < args.max_preds)):
                 prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, target_file)
                 mtype_preds = get_type_predictions(prompt, key, func, ground_truths[func], code_llm, args)
                 num_of_preds = args.total_preds
-                if key in type_preds_cache:
-                    prev_preds = type_preds_cache[key][0]
+                if func in type_preds_cache:
+                    prev_preds = type_preds_cache[func]
                     mtype_preds.extend(prev_preds)
                     mtype_preds = list(set(mtype_preds))
-                    num_of_preds += type_preds_cache[key][1]
+                    num_of_preds += num_of_llm_calls[func]
                     # NOTE: Exit criteria for the backtracking loop
                     # If the LLM can't generate any new types, then try the ground truth type or go back
                     # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
-                    if len(mtype_preds) == len(type_preds_cache[key][0]) and dependencies[target_file][func]:
+                    if len(mtype_preds) == len(type_preds_cache[func]) and dependencies[target_file][func]:
                         print("No new predictions...", flush=True)
-                        # Clean up all function depending on this
-                        for func_next, deps in reversed(dependencies[target_file].items()):
-                            if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
-                                mask_stack.append(func_to_mask_id[func_next])
-                                llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
-                                tested_types_num[func_next] = 0
-                                current_type_state[func_next] = ""
-                        # Add failed mask_id to retry later
-                        mask_stack.append(mask_id)
-                        llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                        current_type_state[func] = ""
-                        tested_types_num[func] = 0
-                        # Add least tested dependency to stack
-                        next_func = dependencies[target_file][func][0]
-                        untested_types = len(type_preds_cache[f"{target_file}--{next_func}"][0]) - tested_types_num[next_func]
-                        next_mask_id = func_to_mask_id[next_func]
-                        for func_dep in dependencies[target_file][func]:
-                            if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types and not using_ground_truth[func_dep]:
-                                next_mask_id = func_to_mask_id[func_dep]
-                                untested_types = len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep]
-                                next_func = func_dep
-                        mask_stack.append(next_mask_id)
-                        llm_prog = restore_mask_at_id(next_mask_id, next_func, llm_prog)
-                        current_type_state[next_func] = ""
+                        llm_prog = backtrack_curr_mask(func, mask_id, llm_prog)
+                        llm_prog, next_mask_id = add_least_tested_dependency_in_stack(func, llm_prog)
                         print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
                         continue
-                    elif len(mtype_preds) == len(type_preds_cache[key][0]) and mask_id > 1:
-                        # Clean up all function depending on this
-                        for func_next, deps in reversed(dependencies[target_file].items()):
-                            if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
-                                mask_stack.append(func_to_mask_id[func_next])
-                                llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
-                                tested_types_num[func_next] = 0
-                                current_type_state[func_next] = ""
-                        # Add failed mask_id to retry later
-                        mask_stack.append(mask_id)
-                        llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                        current_type_state[func] = ""
-                        tested_types_num[func] = 0
+                    elif len(mtype_preds) == len(type_preds_cache[func]) and mask_id > 1:
+                        llm_prog = backtrack_curr_mask(func, mask_id, llm_prog)
                         # Add least tested dependency to stack
                         mask_id -= 1
-                        next_func = masked_func_types[mask_id].split()[1].strip()
+                        next_func = mask_id_to_func[mask_id]
                         mask_stack.append(mask_id)
                         llm_prog = restore_mask_at_id(mask_id, next_func, llm_prog)
                         current_type_state[next_func] = ""
                         print(f"Backtracking to mask id = {mask_id}...", flush=True)
                         continue
-                    elif (len(mtype_preds) > 10 or len(mtype_preds) == len(type_preds_cache[key][0])) and not using_ground_truth[func]:
+                    elif (len(mtype_preds) > 10 or len(mtype_preds) == len(type_preds_cache[func])) and not using_ground_truth[func]:
                         print(f"Testing the ground truth type, since we got too many unique predictions...", flush=True)
                         mtype_preds = [ground_truths[func]]
                         num_of_preds = args.max_preds + 1
@@ -401,7 +406,8 @@ def run_tests(path, args):
                     mtype_preds.extend(get_type_predictions(prompt, key, func, ground_truths[func], code_llm, args))
                     mtype_preds = list(set(mtype_preds))
                     num_of_preds += args.total_preds
-                type_preds_cache[key] = mtype_preds, num_of_preds
+                type_preds_cache[func] = mtype_preds
+                num_of_llm_calls[func] = num_of_preds
 
             if using_ground_truth[func]:
                 current_type_state[func] = ground_truths[func]
@@ -432,7 +438,7 @@ def run_tests(path, args):
                         print("...UNSAFE", flush=True)
                         seen_states[state] = solved = False
             else:
-                for type_prediction in type_preds_cache[key][0][tested_types_num[func]:]:
+                for type_prediction in type_preds_cache[func][tested_types_num[func]:]:
                     current_type_state[func] = type_prediction
                     tested_types_num[func] += 1
                     total_times_tested[func] += 1
@@ -443,9 +449,10 @@ def run_tests(path, args):
                         print("...UNSAFE")
                         current_type_state[func] = ""
                         continue
-                    if not using_ground_truth[func] and total_times_tested[func] >= 25:
+                    if not using_ground_truth[func] and total_times_tested[func] >= runs_upper_bound[func]:
                         print("Too many failures for this type; Testing the ground truth type...")
-                        type_preds_cache[key] = [ground_truths[func]], args.max_preds + 1
+                        type_preds_cache[func] = [ground_truths[func]]
+                        num_of_llm_calls[func] = args.max_preds + 1
                         using_ground_truth[func] = True
                         current_type_state[func] = ground_truths[func]
                         type_prediction = ground_truths[func]
@@ -486,52 +493,9 @@ def run_tests(path, args):
                 deepest_correct_type_id[target_file] = max(mask_id, deepest_correct_type_id[target_file])
             else:
                 print(f"{func} --> UNSAFE", flush=True)
-                # if using_ground_truth[func] and dependencies[target_file][func]:
-                #     print("Something wrong with dependencies while using ground truth...")
-                #     # Clean up all function depending on this
-                #     for func_next, deps in reversed(dependencies[target_file].items()):
-                #         if func in deps and func_to_mask_id[func_next] not in mask_stack:
-                #             mask_stack.append(func_to_mask_id[func_next])
-                #             llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
-                #             tested_types_num[func_next] = 0
-                #             current_type_state[func_next] = ""
-                #     # Add failed mask_id to retry later
-                #     mask_stack.append(mask_id)
-                #     llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                #     current_type_state[func] = ""
-                #     # Add all dependencies to stack
-                #     # And clean up dependencies again... FIXME: is this necessearry?
-                #     for func_dep in dependencies[target_file][func]:
-                #         mask_stack.append(func_to_mask_id[func_dep])
-                #         llm_prog = restore_mask_at_id(func_to_mask_id[func_dep], func_dep, llm_prog)
-                #         tested_types_num[func_dep] = 0
-                #         current_type_state[func_dep] = ""
-                #     print(f"Backtracking to mask id = {mask_stack[-1]}...", flush=True)
                 if dependencies[target_file][func]:
-                    # Clean up all function depending on this
-                    for func_next, deps in reversed(dependencies[target_file].items()):
-                        if func in deps and func_to_mask_id[func_next] not in mask_stack and not using_ground_truth[func_next]:
-                            mask_stack.append(func_to_mask_id[func_next])
-                            llm_prog = restore_mask_at_id(func_to_mask_id[func_next], func_next, llm_prog)
-                            tested_types_num[func_next] = 0
-                            current_type_state[func_next] = ""
-                    # Add failed mask_id to retry later
-                    mask_stack.append(mask_id)
-                    llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                    current_type_state[func] = ""
-                    tested_types_num[func] = 0
-                    # Add least tested dependency to stack
-                    next_func = dependencies[target_file][func][0]
-                    untested_types = len(type_preds_cache[f"{target_file}--{next_func}"][0]) - tested_types_num[next_func]
-                    next_mask_id = func_to_mask_id[next_func]
-                    for func_dep in dependencies[target_file][func]:
-                        if len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep] > untested_types and not using_ground_truth[func_dep]:
-                            next_mask_id = func_to_mask_id[func_dep]
-                            untested_types = len(type_preds_cache[f"{target_file}--{func_dep}"][0]) - tested_types_num[func_dep]
-                            next_func = func_dep
-                    mask_stack.append(next_mask_id)
-                    llm_prog = restore_mask_at_id(next_mask_id, next_func, llm_prog)
-                    current_type_state[next_func] = ""
+                    llm_prog = backtrack_curr_mask(func, mask_id, llm_prog)
+                    llm_prog, next_mask_id = add_least_tested_dependency_in_stack(func, llm_prog)
                     print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
                 elif not using_ground_truth[func]:
                     # Add failed mask_id to retry later
