@@ -182,6 +182,20 @@ class ProjectState():
                 stack.append(next_key)
                 next_file_obj.tested_types_num[next_func] = 0
 
+    def get_least_tested_dependency(self):
+        key = (self.filename, self.func)
+        next_key = self.dependencies[key]
+        next_filename, next_func = next_key
+        next_file_obj = self.files[next_filename]
+        untested_types = len(next_file_obj.type_preds_cache[next_func]) - next_file_obj.tested_types_num[next_func]
+        for dep_filename, dep_func in self.dependencies[key][1:]:
+            dep_file_obj = self.files[dep_filename]
+            temp = len(dep_file_obj.type_preds_cache[dep_func]) - dep_file_obj.tested_types_num[dep_func]
+            if temp > untested_types and not dep_file_obj.using_ground_truth[dep_func]:
+                untested_types = temp
+                next_key = (dep_filename, dep_func)
+        return next_key
+
 
     def verify_project(self, exec_path):
         str_state = ""
@@ -363,25 +377,10 @@ def run_tests(path, args):
         deps = dependencies[(filename, func)]
         dependencies[(filename, func)] = [t for t in deps if t in deps]
 
-
-    def add_least_tested_dependency_in_stack(curr_key, llm_prog):
-        # Add least tested dependency to stack
-        next_key = dependencies[curr_key][0]
-        untested_types = len(type_preds_cache[next_key]) - tested_types_num[next_key] if next_key in type_preds_cache else 0
-        next_mask_id = func_to_mask_id[next_key]
-        for dep in dependencies[curr_key]:
-            if dep in type_preds_cache and len(type_preds_cache[dep]) - tested_types_num[dep] > untested_types and not using_ground_truth[dep]:
-                next_mask_id = func_to_mask_id[dep]
-                untested_types = len(type_preds_cache[dep]) - tested_types_num[dep]
-                next_key = dep
-        func_stack.append(next_mask_id)
-        llm_prog = restore_mask_at_id(next_mask_id, next_key[1], llm_prog)
-        current_type_state[next_key[0]][next_key[1]] = ""
-        return llm_prog, next_mask_id
-
     # Load (finetuned) code LLM
     code_llm = StarCoderModel()
 
+    # Initialize Liquid Haskell project state with all the files and function dependencies
     project_state = ProjectState(path, all_files, dependencies, args.max_preds)
 
     num_of_iterations = 0
@@ -430,8 +429,9 @@ def run_tests(path, args):
                     # Add failed function to retry later
                     func_stack.append(key)
                     file_obj.tested_types_num[func] = 0
-                    llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
-                    print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
+                    next_key = project_state.get_least_tested_dependency()
+                    func_stack.append(next_key)
+                    print(f"Backtracking to mask id = {next_key}...", flush=True)
                     continue
                 elif len(mtype_preds) == len(file_obj.type_preds_cache[func]) and mask_id > 1:
                     project_state.clean_func_dependencies(func_stack)
@@ -501,8 +501,9 @@ def run_tests(path, args):
                 # Add failed function to retry later
                 func_stack.append(key)
                 file_obj.tested_types_num[func] = 0
-                llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
-                print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
+                next_key = project_state.get_least_tested_dependency()
+                func_stack.append(next_key)
+                print(f"Backtracking to mask id = {next_key}...", flush=True)
             elif not project_state.is_using_ground_truth():
                 # Add failed mask_id to retry later
                 func_stack.append(mask_id)
