@@ -167,8 +167,21 @@ class ProjectState():
         # Clean up all dependencies prediction tries to retry them later if this fails
         func_deps = self.dependencies[(self.filename, self.func)]
         for dep_filename, dep_func in func_deps:
-            # NOTE: Check if dep_func uses ground truth type?
+            # TODO: Check if dep_func uses ground truth type?
             self.files[dep_filename].tested_types_num[dep_func] = 0
+
+    def clean_func_dependencies(self, stack):
+        # Clean up all functions depending on current state function
+        # Make sure to not re-add funcions to function state stack
+        # TODO: Maybe remove stack logic from here and keep it only in main loop?
+        key = (self.filename, self.func)
+        for next_key, deps in reversed(self.dependencies.items()):
+            next_filename, next_func = next_key
+            next_file_obj = self.files[next_filename]
+            if key in deps and key not in stack and not next_file_obj.using_ground_truth[next_func]:
+                stack.append(next_key)
+                next_file_obj.tested_types_num[next_func] = 0
+
 
     def verify_project(self, exec_path):
         str_state = ""
@@ -350,21 +363,6 @@ def run_tests(path, args):
         deps = dependencies[(filename, func)]
         dependencies[(filename, func)] = [t for t in deps if t in deps]
 
-    def backtrack_curr_mask(curr_key, curr_mask, llm_prog):
-        # Clean up all functions depending on this
-        for next_key, deps in reversed(dependencies.items()):
-            if curr_key in deps and func_to_mask_id[next_key] not in func_stack and not using_ground_truth[next_key]:
-                func_stack.append(func_to_mask_id[next_key])
-                llm_prog = restore_mask_at_id(func_to_mask_id[next_key], next_key[1], llm_prog)
-                tested_types_num[next_key] = 0
-                current_type_state[next_key[0]][next_key[1]] = ""
-        # Add failed mask_id to retry later
-        func_stack.append(curr_mask)
-        llm_prog = restore_mask_at_id(curr_mask, curr_key[1], llm_prog)
-        current_type_state[curr_key[0]][curr_key[1]] = ""
-        tested_types_num[curr_key] = 0
-        return llm_prog
-
 
     def add_least_tested_dependency_in_stack(curr_key, llm_prog):
         # Add least tested dependency to stack
@@ -391,11 +389,10 @@ def run_tests(path, args):
     MAX_ITERATIONS = len(func_stack) * 30
     # print(runs_upper_bound, flush=True)
     while func_stack:
-        filename, func = func_stack.pop()
+        filename, func = key = func_stack.pop()
         project_state.update_current_state(filename, func)
         file_obj = project_state.files[filename]
         assert isinstance(file_obj, LiquidFile) # NOTE: Just for autocomplete puproses later on
-        key = (filename, func)
         # If we have generated too many types for all functions
         if all(project_state.files[fname].num_of_llm_calls[func] >= args.max_preds for fname, func in project_state.get_all_file_func_pairs()):
             print(f"Reached limit of predictions ({args.max_preds}) for all functions; Exiting...", flush=True)
@@ -429,12 +426,18 @@ def run_tests(path, args):
                 # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
                 if len(mtype_preds) == len(file_obj.type_preds_cache[func]) and dependencies[key]:
                     print("No new predictions...", flush=True)
-                    llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
+                    project_state.clean_func_dependencies(func_stack)
+                    # Add failed function to retry later
+                    func_stack.append(key)
+                    file_obj.tested_types_num[func] = 0
                     llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
                     print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
                     continue
                 elif len(mtype_preds) == len(file_obj.type_preds_cache[func]) and mask_id > 1:
-                    llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
+                    project_state.clean_func_dependencies(func_stack)
+                    # Add failed function to retry later
+                    func_stack.append(key)
+                    file_obj.tested_types_num[func] = 0
                     # Add least tested dependency to stack
                     # mask_id -= 1
                     # next_key = mask_id_to_func[mask_id]
@@ -494,7 +497,10 @@ def run_tests(path, args):
         else:
             print(f"{key} --> UNSAFE", flush=True)
             if dependencies[key] and file_obj.total_times_tested[func] < 2 * runs_upper_bound[key]:
-                llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
+                project_state.clean_func_dependencies(func_stack)
+                # Add failed function to retry later
+                func_stack.append(key)
+                file_obj.tested_types_num[func] = 0
                 llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
                 print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
             elif not project_state.is_using_ground_truth():
