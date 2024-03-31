@@ -56,6 +56,8 @@ class LiquidFile():
             self.ground_truths[func] = clean_type(ground_truth)
             self.using_ground_truth[func] = False
         self.current_types = {func: None for func in self.liquid_funcs}
+        self.type_preds_cache = {func: [] for func in self.liquid_funcs}
+        self.num_of_llm_calls = {func: 0 for func in self.liquid_funcs}
 
     def update_types_in_file(self):
         llm_prog = self.code
@@ -75,23 +77,52 @@ class LiquidFile():
         return llm_prog
 
     def set_func_type(self, func, ltype):
-        self.current_types[func] = ltype
+        if not self.using_ground_truth[func]:
+            self.current_types[func] = ltype
         return self.update_types_in_file()
 
-    def set_func_type_to_ground_truth(self, func):
-        self.current_types[func] = self.ground_truthsp[func]
+    def set_func_type_to_ground_truth(self, func, max_preds):
+        self.current_types[func] = self.ground_truths[func]
         self.using_ground_truth[func] = True
+        self.type_preds_cache[func] = [self.ground_truths[func]]
+        self.num_of_llm_calls[func] = max_preds
         return self.update_types_in_file()
+
+    def make_prompt_for_func(self, func):
+        FIM_PREFIX = "<fim_prefix>"
+        FIM_MIDDLE = "<fim_middle>"
+        FIM_SUFFIX = "<fim_suffix>"
+
+        prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
+        llm_prog = self.code
+        pattern = re.escape(self.liquid_types[func]) + r"\s*?\n"
+        # Mask the type that we want to predict for
+        llm_prog = llm_prog.replace(pattern, "<fimask>")
+        # Remove any types that we have not predicted for or used yet, and keep rest of the predictions
+        for tfunc, ltype in self.current_types.items():
+            if tfunc == func:
+                continue
+            pattern = re.escape(self.liquid_types[tfunc]) + r"\s*?\n"
+            if ltype:
+                llm_prog = re.sub(pattern, ltype, llm_prog, 1)
+            else:
+                llm_prog = re.sub(pattern, "", llm_prog, 1)
+
+        split_code = llm_prog.split("<fimask>")
+        prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
+
+        return prompt
 
 
 class ProjectState():
-    def __init__(self, path, all_files):
+    def __init__(self, path, all_files, max_preds):
         self.path = path
+        self.max_preds = max_preds
         self.files = {}
-        for f in all_files:
-            with open(join(path, f), "r", encoding="utf-8") as prog:
+        for filename in all_files:
+            with open(join(path, filename), "r", encoding="utf-8") as prog:
                 code = prog.read()
-                self.files[f] = LiquidFile(f, code)
+                self.files[filename] = LiquidFile(filename, code)
         self.seen_states = {}
 
     def get_all_file_func_pairs(self):
@@ -107,7 +138,7 @@ class ProjectState():
             prog.write(new_code)
 
     def set_file_func_to_ground(self, filename, func):
-        new_code = self.files[filename].set_func_type_to_ground_truth(func)
+        new_code = self.files[filename].set_func_type_to_ground_truth(func, self.max_preds + 1)
         with open(join(self.path, filename), "w", encoding="utf-8") as prog:
             prog.write(new_code)
 
@@ -133,28 +164,16 @@ class ProjectState():
             self.seen_states[str_state] = True
         return self.seen_states[str_state]
 
+    def is_using_ground_truth(self, filename, func):
+        return self.files[filename].using_ground_truth[func]
 
-def make_prompt_from_masked_code(badp, mask_id, masked_types, filename):
-    FIM_PREFIX = "<fim_prefix>"
-    FIM_MIDDLE = "<fim_middle>"
-    FIM_SUFFIX = "<fim_suffix>"
-
-    prefix = f"<filename>solutions/{filename}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
-    # Remove all other masks and keep the one we want to predict for
-    one_mask_bad_prog = badp.replace(f"<mask_{mask_id}>", "<fimask>")
-    # print_prog_liquid_types(one_mask_bad_prog)
-    for mtype in masked_types:
-        if masked_types[mtype] in one_mask_bad_prog:
-            one_mask_bad_prog = re.sub(masked_types[mtype] + r"\s*", "", one_mask_bad_prog, 1)
-    split_code = one_mask_bad_prog.split("<fimask>")
-    prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
-
-    return prompt
+    def llm_calls_less_than_max(self, filename, func):
+        return self.files[filename].num_of_llm_calls[func] < self.max_preds
 
 
-def get_type_predictions(prompt, key, func_name, ground_truth, llm, args):
+def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
     print("-" * 42)
-    print(f"New type predictions for {key}")
+    print(f"New type predictions for ({filename}, {func_name})")
     print("-> LLM generation...", flush=True)
     # NOTE: The deeper we are in the loop, get more predictions
     # in order to avoid backtracking and potentially removing a correct earlier type
@@ -294,10 +313,11 @@ def run_tests(path, args):
     current_type_state = {}
     runs_upper_bound = {}
 
-    curr_repo_state = ProjectState([filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")])
+    all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
+    project_state = ProjectState(path, all_files, args.max_preds)
 
     new_dependencies = {}
-    for filename, file_obj in curr_repo_state.files.items():
+    for filename, file_obj in project_state.files.items():
         all_progs += 1
         # masked_funcs = list(filter(lambda t: t.split()[1] in dependencies and t.split()[1] not in LIQUID_PRAGMAS, all_liquid_types))
         # for t in masked_funcs:
@@ -328,13 +348,13 @@ def run_tests(path, args):
     def backtrack_curr_mask(curr_key, curr_mask, llm_prog):
         # Clean up all functions depending on this
         for next_key, deps in reversed(dependencies.items()):
-            if curr_key in deps and func_to_mask_id[next_key] not in mask_stack and not using_ground_truth[next_key]:
-                mask_stack.append(func_to_mask_id[next_key])
+            if curr_key in deps and func_to_mask_id[next_key] not in func_stack and not using_ground_truth[next_key]:
+                func_stack.append(func_to_mask_id[next_key])
                 llm_prog = restore_mask_at_id(func_to_mask_id[next_key], next_key[1], llm_prog)
                 tested_types_num[next_key] = 0
                 current_type_state[next_key[0]][next_key[1]] = ""
         # Add failed mask_id to retry later
-        mask_stack.append(curr_mask)
+        func_stack.append(curr_mask)
         llm_prog = restore_mask_at_id(curr_mask, curr_key[1], llm_prog)
         current_type_state[curr_key[0]][curr_key[1]] = ""
         tested_types_num[curr_key] = 0
@@ -351,7 +371,7 @@ def run_tests(path, args):
                 next_mask_id = func_to_mask_id[dep]
                 untested_types = len(type_preds_cache[dep]) - tested_types_num[dep]
                 next_key = dep
-        mask_stack.append(next_mask_id)
+        func_stack.append(next_mask_id)
         llm_prog = restore_mask_at_id(next_mask_id, next_key[1], llm_prog)
         current_type_state[next_key[0]][next_key[1]] = ""
         return llm_prog, next_mask_id
@@ -362,13 +382,15 @@ def run_tests(path, args):
     seen_states = {}
     num_of_iterations = 0
     MAX_ITERATIONS = len(masked_func_types) * 30
-    mask_stack = curr_repo_state.get_all_file_func_pairs()
+    func_stack = project_state.get_all_file_func_pairs()
     # print(runs_upper_bound, flush=True)
-    while mask_stack:
-        filename, func = mask_stack.pop()
+    while func_stack:
+        filename, func = func_stack.pop()
+        file_obj = project_state.files[filename]
+        assert isinstance(file_obj, LiquidFile)
         key = (filename, func)
         # If we have generated too many types for all functions
-        if all(num_of_llm_calls[k] >= args.max_preds for k in num_of_llm_calls):
+        if all(not project_state.llm_calls_less_than_max(filename, func) for filename, func in project_state.get_all_file_func_pairs()):
             print(f"Reached limit of predictions ({num_of_llm_calls[key]} >= {args.max_preds}); Exiting...", flush=True)
             break
         # If we had too many iteratin with the whole loop
@@ -376,69 +398,64 @@ def run_tests(path, args):
             print(f"Too many iterations {num_of_iterations}; Exiting...", flush=True)
             break
         num_of_iterations += 1
-
         print("=" * 42)
         print(f"Solving {filename} ({func})...", flush=True)
         solved = False
         # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-        if key in type_preds_cache and num_of_llm_calls[key] >= args.max_preds and not using_ground_truth[key]:
+        if not project_state.llm_calls_less_than_max(filename, func) and not project_state.is_using_ground_truth(filename, func):
             print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
-            type_preds_cache[key] = [ground_truths[key]]
-            num_of_llm_calls[key] = args.max_preds + 1
-            using_ground_truth[key] = True
+            project_state.set_file_func_to_ground(filename, func)
             tested_types_num[key] = 0
             for dep in dependencies[key]:
                 tested_types_num[dep] = 0
             solved = True
-        elif not using_ground_truth[key] and \
-            (key not in type_preds_cache or
-            (tested_types_num[key] >= len(type_preds_cache[key]) and
-                num_of_llm_calls[key] < args.max_preds)):
-            prompt = make_prompt_from_masked_code(llm_prog, mask_id, masked_func_types, filename)
-            mtype_preds = get_type_predictions(prompt, key, func, ground_truths[key], code_llm, args)
+        elif not project_state.is_using_ground_truth(filename, func) and \
+            (tested_types_num[key] >= len(file_obj.type_preds_cache[func]) and
+                project_state.llm_calls_less_than_max(filename, func)):
+            prompt = file_obj.make_prompt_for_func(func)
+            mtype_preds = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
             num_of_preds = args.total_preds
-            if key in type_preds_cache:
-                prev_preds = type_preds_cache[key]
+            if not file_obj.type_preds_cache[func]:
+                prev_preds = file_obj.type_preds_cache[func]
                 mtype_preds.extend(prev_preds)
                 mtype_preds = list(set(mtype_preds))
-                num_of_preds += num_of_llm_calls[key]
+                num_of_preds += file_obj.num_of_llm_calls[func]
                 # NOTE: Exit criteria for the backtracking loop
                 # If the LLM can't generate any new types, then try the ground truth type or go back
                 # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
-                if len(mtype_preds) == len(type_preds_cache[key]) and dependencies[key]:
+                if len(mtype_preds) == len(file_obj.type_preds_cache[func]) and dependencies[key]:
                     print("No new predictions...", flush=True)
                     llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
                     llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
                     print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
                     continue
-                elif len(mtype_preds) == len(type_preds_cache[key]) and mask_id > 1:
+                elif len(mtype_preds) == len(file_obj.type_preds_cache[func]) and mask_id > 1:
                     llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
                     # Add least tested dependency to stack
                     mask_id -= 1
                     next_key = mask_id_to_func[mask_id]
-                    mask_stack.append(mask_id)
+                    func_stack.append(mask_id)
                     llm_prog = restore_mask_at_id(mask_id, next_key[1], llm_prog)
                     current_type_state[filename][next_key] = ""
                     print(f"Backtracking to mask id = {mask_id}...", flush=True)
                     continue
-                elif (len(mtype_preds) > 10 or len(mtype_preds) == len(type_preds_cache[key]) or len(mtype_preds) == 0) and not using_ground_truth[key]:
+                elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth(filename, func):
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
-                    mtype_preds = [ground_truths[key]]
-                    num_of_preds = args.max_preds + 1
-                    using_ground_truth[key] = True
+                    project_state.set_file_func_to_ground(filename, func)
                     tested_types_num[key] = 0
                     for dep in dependencies[key]:
                         if not using_ground_truth[dep]:
                             tested_types_num[dep] = 0
                     solved = True
-            elif len(mtype_preds) < 5:
-                mtype_preds.extend(get_type_predictions(prompt, key, func, ground_truths[key], code_llm, args))
+            else:
+                mtype_preds.extend(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args))
                 mtype_preds = list(set(mtype_preds))
                 num_of_preds += args.total_preds
-            type_preds_cache[key] = mtype_preds
-            num_of_llm_calls[key] = num_of_preds
+            if not project_state.is_using_ground_truth(filename, func):
+                file_obj.type_preds_cache[func] = mtype_preds
+                num_of_llm_calls[key] = num_of_preds
 
-        if using_ground_truth[key]:
+        if project_state.is_using_ground_truth(filename, func):
             current_type_state[filename][func] = ground_truths[key]
             total_times_tested[key] += 1
             print("-" * 42)
@@ -468,7 +485,7 @@ def run_tests(path, args):
                     print("...UNSAFE", flush=True)
                     seen_states[state] = solved = False
         else:
-            for type_prediction in type_preds_cache[key][tested_types_num[key]:]:
+            for type_prediction in file_obj.type_preds_cache[func][tested_types_num[key]:]:
                 current_type_state[filename][func] = type_prediction
                 tested_types_num[key] += 1
                 total_times_tested[key] += 1
@@ -479,11 +496,9 @@ def run_tests(path, args):
                     print("...UNSAFE")
                     current_type_state[filename][func] = ""
                     continue
-                if not using_ground_truth[key] and total_times_tested[key] >= runs_upper_bound[key]:
+                if not project_state.is_using_ground_truth(filename, func) and total_times_tested[key] >= runs_upper_bound[key]:
                     print("Too many failures for this type; Testing the ground truth type...")
-                    type_preds_cache[key] = [ground_truths[key]]
-                    num_of_llm_calls[key] = args.max_preds + 1
-                    using_ground_truth[key] = True
+                    project_state.set_file_func_to_ground(filename, func)
                     current_type_state[filename][func] = ground_truths[key]
                     type_prediction = ground_truths[key]
                     tested_types_num[key] = 0
@@ -529,17 +544,17 @@ def run_tests(path, args):
                 llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
                 llm_prog, next_mask_id = add_least_tested_dependency_in_stack(key, llm_prog)
                 print(f"Backtracking to mask id = {next_mask_id}...", flush=True)
-            elif not using_ground_truth[key]:
+            elif not project_state.is_using_ground_truth(filename, func):
                 # Add failed mask_id to retry later
-                mask_stack.append(mask_id)
+                func_stack.append(mask_id)
                 llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
                 current_type_state[filename][func] = ""
                 print(f"Trying again mask id = {mask_id}...", flush=True)
             else:
                 tested_types_num[key] = 0
-                if mask_id-1 in mask_stack:
-                    mask_stack.remove(mask_id-1)
-                mask_stack.append(mask_id-1)
+                if mask_id-1 in func_stack:
+                    func_stack.remove(mask_id-1)
+                func_stack.append(mask_id-1)
                 print(f"Backtracking to previous mask id = {mask_id-1}...", flush=True)
 
 
