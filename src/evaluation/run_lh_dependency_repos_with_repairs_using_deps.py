@@ -7,7 +7,7 @@ import re
 import subprocess as subp
 from predict.get_starcoder_code_suggestions import StarCoderModel
 
-LIQUID_PRAGMAS = set(["LIQUID", "data", "type", "measure", "inline"])
+LIQUID_PRAGMAS = set(["LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
 
 
 def get_args():
@@ -60,6 +60,7 @@ class LiquidFile():
         self.name = name
         self.code = code
         all_liquid_types = filter(lambda t: t.split()[1] not in LIQUID_PRAGMAS, re.findall(r"{-@[\s\S]*?@-}", code))
+        self.liquid_types = {}
         self.liquid_funcs = set()
         self.ground_truths = {}
         self.using_ground_truth = {}
@@ -88,7 +89,7 @@ class LiquidFile():
                 # '\\'s are evaluated to one '\' when subing, so we need to add another one
                 if "\\" in ltype:
                     ltype = ltype.replace("\\", "\\\\")
-                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}", llm_prog, 1)
+                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}\n", llm_prog, 1)
             else:
                 # Ignore the function
                 llm_prog = re.sub(pattern, f"{{-@ ignore {func} @-}}\n", llm_prog, 1)
@@ -115,28 +116,34 @@ class LiquidFile():
 
         prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
         llm_prog = self.code
+        # FIXME: Hack to shorten prompt, because Crypt.hs is too long
+        # TODO: Try to keep only dependencies or functions that have types
+        if self.name == "Crypt.hs":
+            lines = llm_prog.split('\n')
+            llm_prog = '\n'.join(lines[19:])
         pattern = re.escape(self.liquid_types[func]) + r"\s*?\n"
         # Mask the type that we want to predict for
-        llm_prog = llm_prog.replace(pattern, "<fimask>")
+        llm_prog = re.sub(pattern, f"{{-@ {func} :: <fimask> @-}}\n", llm_prog, 1)
         # Remove any types that we have not predicted for or used yet, and keep rest of the predictions
         for tfunc, ltype in self.current_types.items():
             if tfunc == func:
                 continue
             pattern = re.escape(self.liquid_types[tfunc]) + r"\s*?\n"
             if ltype:
-                llm_prog = re.sub(pattern, ltype, llm_prog, 1)
-            else:
-                llm_prog = re.sub(pattern, "", llm_prog, 1)
+                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}\n", llm_prog, 1)
+            # FIXME: If don't have any types in the prompt in the first tries, the predictions are not good (few-shot learning)
+            # TODO: Maybe add a few fixed examples, like the user provided them
+            # else:
+            #     llm_prog = re.sub(pattern, "", llm_prog, 1)
 
         split_code = llm_prog.split("<fimask>")
         prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
-
         return prompt
 
     def get_next_pred_for_func(self, func):
         next_pred_id = self.tested_types_num[func]
-        if next_pred_id < len(self.type_preds_cache):
-            type_pred = self.type_preds_cache[next_pred_id]
+        if next_pred_id < len(self.type_preds_cache[func]):
+            type_pred = self.type_preds_cache[func][next_pred_id]
             self.tested_types_num[func] = next_pred_id + 1
             return type_pred
         return None
@@ -147,7 +154,7 @@ class ProjectState():
         # Global state variables
         self.path = path
         self.max_preds = max_preds
-        self.func_deps = dependencies
+        self.dependencies = dependencies
         self.files = {}
         for filename in all_files:
             with open(join(path, filename), "r", encoding="utf-8") as prog:
@@ -199,7 +206,7 @@ class ProjectState():
 
     def get_least_tested_dependency(self):
         key = (self.filename, self.func)
-        next_key = self.dependencies[key]
+        next_key = self.dependencies[key][0]
         next_filename, next_func = next_key
         next_file_obj = self.files[next_filename]
         untested_types = len(next_file_obj.type_preds_cache[next_func]) - next_file_obj.tested_types_num[next_func]
@@ -225,9 +232,8 @@ class ProjectState():
         cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
         cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
         cmds += f"cd {exec_path}; "
-        cmds += f"stack build"
-        # cmds += f"stack build; "
-        # cmds += f"git restore {join('src', filename)}"
+        cmds += f"stack build; "
+        cmds += f"git restore {join('src', filename)}"
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stderr.decode('utf-8').strip()
         if result != "" and "UNSAFE" not in result and "SAFE" in result:
@@ -303,7 +309,6 @@ def run_tests(path, args):
             new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
             total_num_of_funcs_per_file[filename] += 1
             total_num_of_correct_funcs[filename] = 0
-            total_ground_truths[filename] = 0
             curr_num_of_funcs_tested[filename] = 0
             runs_upper_bound[(filename, func)] = min(30, max(11, len(new_dependencies[(filename, func)]) * 10))
     dependencies = new_dependencies
@@ -380,9 +385,10 @@ def run_tests(path, args):
                     # TODO: This is not really random, just checking next key not in stack
                     all_keys = project_state.get_all_file_func_pairs()
                     next_key, i = all_keys[0], 0
-                    while next_key in func_stack:
+                    while next_key in func_stack and i + 1 < len(all_keys):
                         i += 1
                         next_key = all_keys[i]
+                    func_stack.append(next_key)
                     print(f"Backtracking to random function = {next_key}...", flush=True)
                     continue
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
@@ -423,8 +429,10 @@ def run_tests(path, args):
                 solved = project_state.verify_project(args.exec_dir)
                 if solved:
                     print("...SAFE", flush=True)
+                    break
                 else:
                     print("...UNSAFE", flush=True)
+                    type_prediction = project_state.get_next_pred()
         print("-" * 42)
         print("-" * 42)
         if solved:
