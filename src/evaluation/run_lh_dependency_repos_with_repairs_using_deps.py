@@ -1,4 +1,5 @@
 import argparse
+from collections import defaultdict
 from os.path import exists, join
 from os import listdir
 import json
@@ -316,38 +317,32 @@ def run_tests(path, args):
     with open("./benchmarks/hsalsa20_dependencies.json", "r", encoding="utf-8") as dep_file:
         dependencies = json.loads(dep_file.read())
     fixed_progs = 0
-    all_progs = 0
-    masks_per_exer = {}
+    masks_per_exer = defaultdict(int)
     exit_mask_id = {}
     deepest_correct_type_id = {}
     total_ground_truths = {}
     runs_upper_bound = {}
-
-    all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
+    # all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
+    all_files = [key.split("--")[0].strip() for key in dependencies]
+    total_num_of_progs = len(all_files)
     project_state = ProjectState(path, all_files, args.max_preds)
 
     new_dependencies = {}
-    for filename, file_obj in project_state.files.items():
-        all_progs += 1
-        # masked_funcs = list(filter(lambda t: t.split()[1] in dependencies and t.split()[1] not in LIQUID_PRAGMAS, all_liquid_types))
-        # for t in masked_funcs:
-        #     func = t.split()[1]
-        #     if (filename, func) not in new_dependencies:
-        #         new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[func]] #Because we had lists of 2 elements in dependnecies file
-
-        masks_per_exer[filename] = len(file_obj.liquid_types)
-        deepest_correct_type_id[filename] = 0
-        total_ground_truths[filename] = 0
-        exit_mask_id[filename] = 0
-
-    for func in file_obj.liquid_funcs:
-        runs_upper_bound[(filename, func)] = min(30, max(11, len(new_dependencies[(filename, func)]) * 10))
-
+    for key in dependencies:
+        filename = key.split("--")[0].strip()
+        func = key.split("--")[1].strip()
+        if (filename, func) not in new_dependencies:
+            new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
+            masks_per_exer[filename] += 1
+            deepest_correct_type_id[filename] = 0
+            total_ground_truths[filename] = 0
+            exit_mask_id[filename] = 0
+            runs_upper_bound[(filename, func)] = min(30, max(11, len(new_dependencies[(filename, func)]) * 10))
     dependencies = new_dependencies
+    # NOTE: Clean-up in case we are missing some file-function pairs?
     for filename, func in dependencies:
         deps = dependencies[(filename, func)]
         dependencies[(filename, func)] = [t for t in deps if t in deps]
-
 
     def backtrack_curr_mask(curr_key, curr_mask, llm_prog):
         # Clean up all functions depending on this
@@ -440,7 +435,6 @@ def run_tests(path, args):
                     next_key = mask_id_to_func[mask_id]
                     func_stack.append(mask_id)
                     llm_prog = restore_mask_at_id(mask_id, next_key[1], llm_prog)
-                    current_type_state[filename][next_key] = ""
                     print(f"Backtracking to mask id = {mask_id}...", flush=True)
                     continue
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
@@ -535,7 +529,7 @@ def run_tests(path, args):
             print("-" * 42)
     print("=" * 42)
     print("=" * 42)
-    print(f"{fixed_progs} / {all_progs} programs fully annotated correctly with LH types")
+    print(f"{fixed_progs} / {total_num_of_progs} programs fully annotated correctly with LH types")
 
 
 if __name__ == "__main__":
