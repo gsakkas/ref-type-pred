@@ -1,5 +1,5 @@
 import argparse
-from collections import defaultdict
+from collections import defaultdict, Counter
 from os.path import exists, join
 from os import listdir
 import json
@@ -38,6 +38,21 @@ def get_args():
 
 def clean_type(ltype):
     return ' '.join(ltype.split()).replace('{ ', '{').replace(' }', '}').strip()
+
+
+def print_prog_liquid_types(prog):
+    types_str = ""
+    in_type = False
+    for l in prog.split('\n'):
+        if "{-@" in l or "{--" in l:
+            in_type = True
+        if in_type:
+            types_str += l + "\n"
+        if "@-}" in l:
+            in_type = False
+    print("-" * 42 + "Types in program" + "-" * 42)
+    print(types_str)
+    print("-" * 100)
 
 
 class LiquidFile():
@@ -196,7 +211,6 @@ class ProjectState():
                 next_key = (dep_filename, dep_func)
         return next_key
 
-
     def verify_project(self, exec_path):
         str_state = ""
         for filename, file_obj in self.files.items():
@@ -268,93 +282,14 @@ def flip_properties(prog, curr_type):
     return llm_prog
 
 
-def replace_type_with_pred(func, pred, prog, all_mtypes):
-    tp = pred
-    # NOTE: need to take care of possible '\f ->' in predicted types
-    # '\\'s are evaluated to one '\' when subing, so we need to add another one
-    if "\\" in tp:
-        tp = tp.replace("\\", "\\\\")
-    llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {tp} @-}}", prog, 1)
-    # Ignore all other masks and keep the one we want to test for
-    for mtype in all_mtypes:
-        if all_mtypes[mtype] in llm_prog:
-            ignore_func = all_mtypes[mtype].split()[1].strip()
-            if ignore_func == func:
-                continue
-            pattern = re.escape(all_mtypes[mtype]) + r"\s*?\n"
-            llm_prog = re.sub(pattern, f"{{-@ ignore {ignore_func} @-}}\n", llm_prog, 1)
-
-    # print("-+" * 42)
-    # print(llm_prog)
-    # print("-+" * 42)
-    return llm_prog
-
-
-def restore_mask_at_id(m_id, func, prog):
-    print(f"Restored {func} :: <mask_{m_id}>")
-    llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: <mask_{m_id}> @-}}", prog, 1)
-    return llm_prog
-
-
-def restore_ignored_masks(all_mtypes, prog):
-    llm_prog = prog
-    for mtype in all_mtypes:
-        ignore_func = all_mtypes[mtype].split()[1].strip()
-        if f"{{-@ ignore {ignore_func} @-}}" in llm_prog:
-            # print(f"Restored ignore {all_mtypes[mtype]}...")
-            llm_prog = llm_prog.replace(f"{{-@ ignore {ignore_func} @-}}", all_mtypes[mtype], 1)
-    return llm_prog
-
-
-def lh_verifies_prog(prog, filename, args):
-    with open(join(args.exec_dir, "src", filename), "w", encoding="utf-8") as llm_fin:
-        llm_fin.write(prog)
-
-    solved = False
-    cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
-    cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
-    cmds += f"cd {args.exec_dir}; "
-    cmds += f"stack build; "
-    cmds += f"git restore {join('src', filename)}"
-    test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
-    result = test_output.stderr.decode('utf-8').strip()
-    if result != "" and "UNSAFE" not in result and "SAFE" in result:
-        solved = True
-    return solved
-
-
-def get_type_state_str(state):
-    state_str = ""
-    for func, ftype in state.items():
-        if ftype:
-            state_str += f"{func} :: {ftype}<->"
-    return state_str[:-3]
-
-
-def print_prog_liquid_types(prog):
-    types_str = ""
-    in_type = False
-    for l in prog.split('\n'):
-        if "{-@" in l or "{--" in l:
-            in_type = True
-        if in_type:
-            types_str += l + "\n"
-        if "@-}" in l:
-            in_type = False
-    print("-" * 42 + "Types in program" + "-" * 42)
-    print(types_str)
-    print("-" * 100)
-
-
 def run_tests(path, args):
     dependencies = {}
     with open("./benchmarks/hsalsa20_dependencies.json", "r", encoding="utf-8") as dep_file:
         dependencies = json.loads(dep_file.read())
     fixed_progs = 0
-    masks_per_exer = defaultdict(int)
-    exit_mask_id = {}
-    deepest_correct_type_id = {}
-    total_ground_truths = {}
+    total_num_of_funcs_per_file = defaultdict(int)
+    curr_num_of_funcs_tested = {}
+    total_num_of_correct_funcs = {}
     runs_upper_bound = {}
     # all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
     all_files = [key.split("--")[0].strip() for key in dependencies]
@@ -366,10 +301,10 @@ def run_tests(path, args):
         func = key.split("--")[1].strip()
         if (filename, func) not in new_dependencies:
             new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
-            masks_per_exer[filename] += 1
-            deepest_correct_type_id[filename] = 0
+            total_num_of_funcs_per_file[filename] += 1
+            total_num_of_correct_funcs[filename] = 0
             total_ground_truths[filename] = 0
-            exit_mask_id[filename] = 0
+            curr_num_of_funcs_tested[filename] = 0
             runs_upper_bound[(filename, func)] = min(30, max(11, len(new_dependencies[(filename, func)]) * 10))
     dependencies = new_dependencies
     # NOTE: Clean-up in case we are missing some file-function pairs?
@@ -429,21 +364,26 @@ def run_tests(path, args):
                     # Add failed function to retry later
                     func_stack.append(key)
                     file_obj.tested_types_num[func] = 0
+                    # Add least tested dependency to stack
                     next_key = project_state.get_least_tested_dependency()
                     func_stack.append(next_key)
-                    print(f"Backtracking to mask id = {next_key}...", flush=True)
+                    print(f"Backtracking to dependent function = {next_key}...", flush=True)
                     continue
-                elif len(mtype_preds) == len(file_obj.type_preds_cache[func]) and mask_id > 1:
+                elif len(mtype_preds) == len(file_obj.type_preds_cache[func]):
+                    print("No new predictions...", flush=True)
                     project_state.clean_func_dependencies(func_stack)
                     # Add failed function to retry later
                     func_stack.append(key)
                     file_obj.tested_types_num[func] = 0
-                    # Add least tested dependency to stack
-                    # mask_id -= 1
-                    # next_key = mask_id_to_func[mask_id]
-                    # func_stack.append(mask_id)
-                    # llm_prog = restore_mask_at_id(mask_id, next_key[1], llm_prog)
-                    print(f"Backtracking to mask id = {mask_id}...", flush=True)
+                    # Add a random next key since we don't have any dependencies to check
+                    # NOTE: This should happen very rarely or not at all
+                    # TODO: This is not really random, just checking next key not in stack
+                    all_keys = project_state.get_all_file_func_pairs()
+                    next_key, i = all_keys[0], 0
+                    while next_key in func_stack:
+                        i += 1
+                        next_key = all_keys[i]
+                    print(f"Backtracking to random function = {next_key}...", flush=True)
                     continue
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
@@ -479,9 +419,6 @@ def run_tests(path, args):
                     project_state.set_file_func_to_ground()
                     type_prediction = file_obj.ground_truths[func]
                     print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
-                # for f, t in current_type_state[filename].items():
-                #     if t:
-                #         print(f">>> {f} :: {t}")
                 project_state.set_file_func_type(type_prediction)
                 solved = project_state.verify_project(args.exec_dir)
                 if solved:
@@ -491,9 +428,9 @@ def run_tests(path, args):
         print("-" * 42)
         print("-" * 42)
         if solved:
-            # exit_mask_id[filename] = sum([1 if f else 0 for f in current_type_state[filename]])
             print(f"{key} --> SAFE", flush=True)
-            deepest_correct_type_id[filename] = max(exit_mask_id[filename], deepest_correct_type_id[filename])
+            curr_num_of_funcs_tested[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()])
+            total_num_of_correct_funcs[filename] = max(curr_num_of_funcs_tested[filename], total_num_of_correct_funcs[filename])
         else:
             print(f"{key} --> UNSAFE", flush=True)
             if dependencies[key] and file_obj.total_times_tested[func] < 2 * runs_upper_bound[key]:
@@ -501,36 +438,41 @@ def run_tests(path, args):
                 # Add failed function to retry later
                 func_stack.append(key)
                 file_obj.tested_types_num[func] = 0
+                # Add least tested dependency to stack
                 next_key = project_state.get_least_tested_dependency()
                 func_stack.append(next_key)
-                print(f"Backtracking to mask id = {next_key}...", flush=True)
+                print(f"Backtracking to dependent function = {next_key}...", flush=True)
             elif not project_state.is_using_ground_truth():
-                # Add failed mask_id to retry later
-                func_stack.append(mask_id)
-                llm_prog = restore_mask_at_id(mask_id, func, llm_prog)
-                print(f"Trying again mask id = {mask_id}...", flush=True)
+                # Add failed function to retry
+                func_stack.append(key)
+                print(f"Trying again function = {key}...", flush=True)
             else:
-                # tested_types_num[key] = 0
-                if mask_id-1 in func_stack:
-                    func_stack.remove(mask_id-1)
-                func_stack.append(mask_id-1)
-                print(f"Backtracking to previous mask id = {mask_id-1}...", flush=True)
+                # TODO: Do we need to clear the current type tries?
+                file_obj.tested_types_num[func] = 0
+                # Add a random next key since we don't have any dependencies to check
+                # NOTE: This should happen very rarely or not at all
+                # TODO: This is not really random, just checking next key not in stack
+                all_keys = project_state.get_all_file_func_pairs()
+                next_key, i = all_keys[0], 0
+                while next_key in func_stack:
+                    i += 1
+                    next_key = all_keys[i]
+                print(f"Backtracking to random function = {next_key}...", flush=True)
 
-    # total_ground_truths[filename] = 0
-    # for k in using_ground_truth:
-    #     if using_ground_truth[k]:
-    #         total_ground_truths[k[0]] += 1
+    total_ground_truths = {}
+    for filename, file_obj in project_state.files.items():
+        total_ground_truths[filename] = sum(file_obj.using_ground_truth.values())
 
     print("=" * 42)
     print("=" * 42)
-    for k in sorted(exit_mask_id.keys()):
-        if exit_mask_id[filename] == masks_per_exer[filename]:
+    for k in sorted(curr_num_of_funcs_tested.keys()):
+        if curr_num_of_funcs_tested[filename] == total_num_of_funcs_per_file[filename]:
             fixed_progs += 1
-        if masks_per_exer[k] > 0:
+        if total_num_of_funcs_per_file[k] > 0:
             print(f">>> File {k}")
-            print(f"{exit_mask_id[k]} / {masks_per_exer[k]} exit location")
-            print(f"{deepest_correct_type_id[k]} / {masks_per_exer[k]} types predicted correctly")
-            print(f"{deepest_correct_type_id[k] * 100 / masks_per_exer[k]:.2f}% prediction accuracy")
+            print(f"{curr_num_of_funcs_tested[k]} / {total_num_of_funcs_per_file[k]} exit location")
+            print(f"{total_num_of_correct_funcs[k]} / {total_num_of_funcs_per_file[k]} types predicted correctly")
+            print(f"{total_num_of_correct_funcs[k] * 100 / total_num_of_funcs_per_file[k]:.2f}% prediction accuracy")
             print(f"{total_ground_truths[k]} ground truth types used")
             print("-" * 42)
     print("=" * 42)
@@ -540,5 +482,4 @@ def run_tests(path, args):
 
 if __name__ == "__main__":
     cmd_args = get_args()
-
     run_tests("../hsalsa20/src", cmd_args)
