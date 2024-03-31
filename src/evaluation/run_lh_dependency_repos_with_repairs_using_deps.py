@@ -128,10 +128,11 @@ class LiquidFile():
 
 
 class ProjectState():
-    def __init__(self, path, all_files, max_preds):
+    def __init__(self, path, all_files, dependencies, max_preds):
         # Global state variables
         self.path = path
         self.max_preds = max_preds
+        self.func_deps = dependencies
         self.files = {}
         for filename in all_files:
             with open(join(path, filename), "r", encoding="utf-8") as prog:
@@ -150,7 +151,8 @@ class ProjectState():
         all_funcs = []
         for filename, file_obj in self.files.items():
             for func in file_obj.liquid_funcs:
-                all_funcs.append((filename, func))
+                if (filename, func) in self.dependencies:
+                    all_funcs.append((filename, func))
         return all_funcs
 
     def set_file_func_type(self, ltype):
@@ -162,6 +164,11 @@ class ProjectState():
         new_code = self.files[self.filename].set_func_type_to_ground_truth(self.func, self.max_preds + 1)
         with open(join(self.path, self.filename), "w", encoding="utf-8") as prog:
             prog.write(new_code)
+        # Clean up all dependencies prediction tries to retry them later if this fails
+        func_deps = self.dependencies[(self.filename, self.func)]
+        for dep_filename, dep_func in func_deps:
+            # NOTE: Check if dep_func uses ground truth type?
+            self.files[dep_filename].tested_types_num[dep_func] = 0
 
     def verify_project(self, exec_path):
         str_state = ""
@@ -325,7 +332,6 @@ def run_tests(path, args):
     # all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
     all_files = [key.split("--")[0].strip() for key in dependencies]
     total_num_of_progs = len(all_files)
-    project_state = ProjectState(path, all_files, args.max_preds)
 
     new_dependencies = {}
     for key in dependencies:
@@ -378,7 +384,8 @@ def run_tests(path, args):
     # Load (finetuned) code LLM
     code_llm = StarCoderModel()
 
-    seen_states = {}
+    project_state = ProjectState(path, all_files, dependencies, args.max_preds)
+
     num_of_iterations = 0
     func_stack = project_state.get_all_file_func_pairs()
     MAX_ITERATIONS = len(func_stack) * 30
@@ -405,11 +412,9 @@ def run_tests(path, args):
         if not project_state.llm_calls_less_than_max() and not project_state.is_using_ground_truth():
             print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
             project_state.set_file_func_to_ground()
-            for dep in dependencies[key]:
-                tested_types_num[dep] = 0
-            solved = True
+            solved = True # FIXME: Should it be solved already?
         elif not project_state.is_using_ground_truth() and \
-            (tested_types_num[key] >= len(file_obj.type_preds_cache[func]) and
+            (file_obj.tested_types_num[func] >= len(file_obj.type_preds_cache[func]) and
                 project_state.llm_calls_less_than_max()):
             prompt = file_obj.make_prompt_for_func(func)
             mtype_preds = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
@@ -431,18 +436,15 @@ def run_tests(path, args):
                 elif len(mtype_preds) == len(file_obj.type_preds_cache[func]) and mask_id > 1:
                     llm_prog = backtrack_curr_mask(key, mask_id, llm_prog)
                     # Add least tested dependency to stack
-                    mask_id -= 1
-                    next_key = mask_id_to_func[mask_id]
-                    func_stack.append(mask_id)
-                    llm_prog = restore_mask_at_id(mask_id, next_key[1], llm_prog)
+                    # mask_id -= 1
+                    # next_key = mask_id_to_func[mask_id]
+                    # func_stack.append(mask_id)
+                    # llm_prog = restore_mask_at_id(mask_id, next_key[1], llm_prog)
                     print(f"Backtracking to mask id = {mask_id}...", flush=True)
                     continue
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
                     project_state.set_file_func_to_ground()
-                    for dep in dependencies[key]:
-                        if not using_ground_truth[dep]:
-                            tested_types_num[dep] = 0
                     solved = True
             else:
                 mtype_preds.extend(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args))
@@ -473,9 +475,6 @@ def run_tests(path, args):
                     print("Too many failures for this type; Testing the ground truth type...")
                     project_state.set_file_func_to_ground()
                     type_prediction = file_obj.ground_truths[func]
-                    for dep in dependencies[key]:
-                        if not using_ground_truth[dep]:
-                            tested_types_num[dep] = 0
                     print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                 # for f, t in current_type_state[filename].items():
                 #     if t:
