@@ -1,7 +1,8 @@
 import argparse
 from collections import defaultdict, Counter
-from os.path import exists, join
-from os import listdir
+from os.path import join
+from torch import cuda
+import gc
 import json
 from random import shuffle
 import re
@@ -179,8 +180,8 @@ class ProjectState():
         for filename, file_obj in self.files.items():
             for func in file_obj.liquid_funcs:
                 if (filename, func) in self.dependencies:
-                    all_funcs.append((filename, func))
-        return all_funcs
+                    all_funcs.append((self.dependencies[(filename, func)], filename, func))
+        return [(fname, func) for _, fname, func in sorted(all_funcs, key=lambda x: x[0])]
 
     def set_file_func_type(self, ltype):
         self.files[self.filename].set_func_type(self.func, ltype)
@@ -239,8 +240,7 @@ class ProjectState():
         cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
         cmds += f"cd {exec_path}; "
         cmds += f"stack build; "
-        cmds += f"git restore src; "
-        cmds += f"git status"
+        cmds += f"git restore src"
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stderr.decode('utf-8').strip()
         # print(result)
@@ -272,6 +272,9 @@ def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
     freq_map = Counter(filter(lambda p: func_name not in p, prog_preds))
     prog_preds = [pred for pred, _ in freq_map.most_common(args.total_preds)]
     print(f"-> {len(prog_preds[:10])} unique predicted types", flush=True)
+    # Try to clean up memoru to avoid CUDA OOM after only a few iterations
+    cuda.empty_cache()
+    gc.collect()
     return prog_preds[:10]
 
 
@@ -307,7 +310,6 @@ def run_tests(path, args):
     runs_upper_bound = {}
     # all_files = [filename for filename in sorted(listdir(path)) if not filename.endswith(".hs") and not filename.endswith(".lhs")]
     all_files = [key.split("--")[0].strip() for key in dependencies]
-    total_num_of_progs = len(all_files)
 
     new_dependencies = {}
     for key in dependencies:
@@ -337,6 +339,7 @@ def run_tests(path, args):
     #         if ltype:
     #             print(f">>> {tfunc} :: {ltype}")
 
+    total_num_of_progs = len(project_state.files)
     num_of_iterations = 0
     func_stack = project_state.get_all_file_func_pairs()
     MAX_ITERATIONS = len(func_stack) * 30
@@ -487,6 +490,7 @@ def run_tests(path, args):
                 while next_key in func_stack:
                     i += 1
                     next_key = all_keys[i]
+                func_stack.append(next_key)
                 print(f"Backtracking to random function = {next_key}...", flush=True)
 
     total_ground_truths = {}
