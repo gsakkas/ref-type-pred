@@ -3,6 +3,7 @@ from collections import defaultdict, Counter
 from os.path import exists, join
 from os import listdir
 import json
+from random import shuffle
 import re
 import subprocess as subp
 from predict.get_starcoder_code_suggestions import StarCoderModel
@@ -99,7 +100,6 @@ class LiquidFile():
     def set_func_type(self, func, ltype):
         if not self.using_ground_truth[func]:
             self.current_types[func] = ltype
-        return self.update_types_in_file()
 
     def set_func_type_to_ground_truth(self, func, max_preds):
         self.current_types[func] = self.ground_truths[func]
@@ -107,7 +107,6 @@ class LiquidFile():
         self.type_preds_cache[func] = [self.ground_truths[func]]
         self.num_of_llm_calls[func] = max_preds
         self.tested_types_num[func] = 0
-        return self.update_types_in_file()
 
     def make_prompt_for_func(self, func):
         FIM_PREFIX = "<fim_prefix>"
@@ -142,11 +141,17 @@ class LiquidFile():
 
     def get_next_pred_for_func(self, func):
         next_pred_id = self.tested_types_num[func]
+        # print(next_pred_id, len(self.type_preds_cache[func]))
         if next_pred_id < len(self.type_preds_cache[func]):
             type_pred = self.type_preds_cache[func][next_pred_id]
             self.tested_types_num[func] = next_pred_id + 1
             return type_pred
         return None
+
+    def print_type_state(self):
+        for tfunc, ltype in self.current_types.items():
+            if ltype:
+                print(f">>> {tfunc} :: {ltype}")
 
 
 class ProjectState():
@@ -178,14 +183,10 @@ class ProjectState():
         return all_funcs
 
     def set_file_func_type(self, ltype):
-        new_code = self.files[self.filename].set_func_type(self.func, ltype)
-        with open(join(self.path, self.filename), "w", encoding="utf-8") as prog:
-            prog.write(new_code)
+        self.files[self.filename].set_func_type(self.func, ltype)
 
     def set_file_func_to_ground(self):
-        new_code = self.files[self.filename].set_func_type_to_ground_truth(self.func, self.max_preds + 1)
-        with open(join(self.path, self.filename), "w", encoding="utf-8") as prog:
-            prog.write(new_code)
+        self.files[self.filename].set_func_type_to_ground_truth(self.func, self.max_preds + 1)
         # Clean up all dependencies prediction tries to retry them later if this fails
         func_deps = self.dependencies[(self.filename, self.func)]
         for dep_filename, dep_func in func_deps:
@@ -228,14 +229,21 @@ class ProjectState():
         if str_state in self.seen_states:
             print("Tested before.....")
             return self.seen_states[str_state]
+        # Write to files only here to avoid unnecessary writes
+        for filename, file_obj in self.files.items():
+            with open(join(self.path, filename), "w", encoding="utf-8") as prog:
+                new_code = file_obj.update_types_in_file()
+                prog.write(new_code)
         self.seen_states[str_state] = False
         cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
         cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
         cmds += f"cd {exec_path}; "
         cmds += f"stack build; "
-        cmds += f"git restore {join('src', filename)}"
+        cmds += f"git restore src; "
+        cmds += f"git status"
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stderr.decode('utf-8').strip()
+        # print(result)
         if result != "" and "UNSAFE" not in result and "SAFE" in result:
             self.seen_states[str_state] = True
         return self.seen_states[str_state]
@@ -323,6 +331,12 @@ def run_tests(path, args):
     # Initialize Liquid Haskell project state with all the files and function dependencies
     project_state = ProjectState(path, all_files, dependencies, args.max_preds)
 
+    # for fname, fobj in project_state.files.items():
+    #     print(f"----->{fname}")
+    #     for tfunc, ltype in fobj.ground_truths.items():
+    #         if ltype:
+    #             print(f">>> {tfunc} :: {ltype}")
+
     num_of_iterations = 0
     func_stack = project_state.get_all_file_func_pairs()
     MAX_ITERATIONS = len(func_stack) * 30
@@ -355,7 +369,7 @@ def run_tests(path, args):
             prompt = file_obj.make_prompt_for_func(func)
             mtype_preds = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
             num_of_preds = args.total_preds
-            if not file_obj.type_preds_cache[func]:
+            if file_obj.type_preds_cache[func]:
                 prev_preds = file_obj.type_preds_cache[func]
                 mtype_preds.extend(prev_preds)
                 mtype_preds = list(set(mtype_preds))
@@ -382,8 +396,8 @@ def run_tests(path, args):
                     file_obj.tested_types_num[func] = 0
                     # Add a random next key since we don't have any dependencies to check
                     # NOTE: This should happen very rarely or not at all
-                    # TODO: This is not really random, just checking next key not in stack
                     all_keys = project_state.get_all_file_func_pairs()
+                    shuffle(all_keys)
                     next_key, i = all_keys[0], 0
                     while next_key in func_stack and i + 1 < len(all_keys):
                         i += 1
@@ -395,7 +409,7 @@ def run_tests(path, args):
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
                     project_state.set_file_func_to_ground()
                     solved = True
-            else:
+            elif len(mtype_preds) < 5:
                 mtype_preds.extend(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args))
                 mtype_preds = list(set(mtype_preds))
                 num_of_preds += args.total_preds
@@ -406,6 +420,7 @@ def run_tests(path, args):
         if project_state.is_using_ground_truth():
             print("-" * 42)
             print(f"Testing {{-@ {func} :: {file_obj.ground_truths[func]} @-}}...", flush=True)
+            file_obj.print_type_state()
             solved = project_state.verify_project(args.exec_dir)
             if solved:
                 print("...SAFE", flush=True)
@@ -413,12 +428,15 @@ def run_tests(path, args):
                 print("...UNSAFE", flush=True)
         else:
             type_prediction = project_state.get_next_pred()
-            while type_prediction:
+            cnt = 0
+            while type_prediction and cnt < 20:
+                cnt += 1
                 print("-" * 42)
                 print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                 # NOTE: Just a random check, cause LH crashes for too long types
                 if len(type_prediction) > len(file_obj.ground_truths[func]) + 32:
                     print("...UNSAFE")
+                    type_prediction = project_state.get_next_pred()
                     continue
                 if not project_state.is_using_ground_truth() and file_obj.total_times_tested[func] >= runs_upper_bound[key]:
                     print("Too many failures for this type; Testing the ground truth type...")
@@ -426,6 +444,7 @@ def run_tests(path, args):
                     type_prediction = file_obj.ground_truths[func]
                     print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                 project_state.set_file_func_type(type_prediction)
+                file_obj.print_type_state()
                 solved = project_state.verify_project(args.exec_dir)
                 if solved:
                     print("...SAFE", flush=True)
@@ -433,6 +452,9 @@ def run_tests(path, args):
                 else:
                     print("...UNSAFE", flush=True)
                     type_prediction = project_state.get_next_pred()
+            if cnt == 20:
+                print("ERRORERRORERRORERROR!!!!")
+
         print("-" * 42)
         print("-" * 42)
         if solved:
@@ -459,8 +481,8 @@ def run_tests(path, args):
                 file_obj.tested_types_num[func] = 0
                 # Add a random next key since we don't have any dependencies to check
                 # NOTE: This should happen very rarely or not at all
-                # TODO: This is not really random, just checking next key not in stack
                 all_keys = project_state.get_all_file_func_pairs()
+                shuffle(all_keys)
                 next_key, i = all_keys[0], 0
                 while next_key in func_stack:
                     i += 1
