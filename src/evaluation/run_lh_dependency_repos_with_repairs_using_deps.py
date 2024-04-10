@@ -519,24 +519,27 @@ def run_tests(path, args):
     total_num_of_ground_truths_used = 0
     total_num_of_refinemet_types = 0
     for filename, file_obj in project_state.files.items():
-        total_ground_truths[filename] = sum(file_obj.using_ground_truth.values())
+        given_by_user = 0
+        for func in file_obj.liquid_funcs:
+            if (filename, func) not in project_state.dependencies:
+                given_by_user += 1
+        total_ground_truths[filename] = sum(file_obj.using_ground_truth.values()) - given_by_user
         total_num_of_ground_truths_used += total_ground_truths[filename]
         total_num_of_refinemet_types += total_num_of_funcs_per_file[filename]
-        curr_num_of_funcs_tested[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()])
-        total_num_of_correct_funcs[filename] = max(curr_num_of_funcs_tested[filename], total_num_of_correct_funcs[filename])
+        total_num_of_correct_funcs[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()]) - given_by_user
 
     print("=" * 42)
     print("=" * 42)
-    for k in sorted(curr_num_of_funcs_tested.keys()):
-        if curr_num_of_funcs_tested[k] == total_num_of_funcs_per_file[k]:
-            fixed_progs += 1
-        if total_num_of_funcs_per_file[k] > 0:
-            print(f">>> File {k} ({total_num_of_funcs_per_file[k]} refinement types)")
-            if curr_num_of_funcs_tested[k] != total_num_of_funcs_per_file[k]:
-                print(f"File was not fully verified; Exited after solving {curr_num_of_funcs_tested[k]} types")
-            print(f"{total_num_of_correct_funcs[k]} / {total_num_of_funcs_per_file[k]} types predicted correctly")
-            print(f"{total_ground_truths[k]} / {total_num_of_funcs_per_file[k]} ground truth types used")
-            print(f"{(total_num_of_correct_funcs[k] - total_ground_truths[k]) * 100 / total_num_of_funcs_per_file[k]:.2f}% prediction accuracy")
+    for filename in sorted(total_num_of_correct_funcs.keys()):
+        if total_num_of_funcs_per_file[filename] > 0:
+            print(f">>> File {filename} ({total_num_of_funcs_per_file[filename]} refinement types)")
+            if total_num_of_correct_funcs[filename] == total_num_of_funcs_per_file[filename]:
+                fixed_progs += 1
+            else:
+                print(f"File was not fully verified!!!")
+            print(f"{total_num_of_correct_funcs[filename]} / {total_num_of_funcs_per_file[filename]} types predicted correctly")
+            print(f"{total_ground_truths[filename]} / {total_num_of_funcs_per_file[filename]} ground truth types used")
+            print(f"{(total_num_of_correct_funcs[filename] - total_ground_truths[filename]) * 100 / total_num_of_funcs_per_file[filename]:.2f}% prediction accuracy")
             print("-" * 42)
     print("=" * 42)
     print("=" * 42)
