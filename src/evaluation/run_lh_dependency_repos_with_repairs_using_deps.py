@@ -139,6 +139,9 @@ class LiquidFile():
         prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
         return prompt
 
+    def func_has_more_preds_avail(self, func):
+        return self.tested_types_num[func] < len(self.type_preds_cache[func])
+
     def get_next_pred_for_func(self, func):
         next_pred_id = self.tested_types_num[func]
         # print(next_pred_id, len(self.type_preds_cache[func]))
@@ -261,6 +264,9 @@ class ProjectState():
     def llm_calls_less_than_max(self):
         return self.file_obj.num_of_llm_calls[self.func] < self.max_preds
 
+    def has_more_preds_avail(self):
+        return self.file_obj.func_has_more_preds_avail(self.func)
+
     def get_next_pred(self):
         return self.file_obj.get_next_pred_for_func(self.func)
 
@@ -362,13 +368,12 @@ def run_tests(path, args):
         print(f"Solving {filename} ({func})...", flush=True)
         solved = False
         # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-        if not project_state.llm_calls_less_than_max() and not project_state.is_using_ground_truth():
+        if not project_state.is_using_ground_truth() and not project_state.llm_calls_less_than_max():
             print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
             project_state.set_file_func_to_ground()
             solved = True # FIXME: Should it be solved already?
-        elif not project_state.is_using_ground_truth() and \
-            (file_obj.tested_types_num[func] >= len(file_obj.type_preds_cache[func]) and
-                project_state.llm_calls_less_than_max()):
+        elif not project_state.is_using_ground_truth() and project_state.llm_calls_less_than_max() and \
+                (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()) :
             prompt = file_obj.make_prompt_for_func(func)
             mtype_preds = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
             num_of_preds = args.total_preds
@@ -381,6 +386,8 @@ def run_tests(path, args):
                 # If the LLM can't generate any new types, then try the ground truth type or go back
                 # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
                 if len(mtype_preds) == len(file_obj.type_preds_cache[func]) and dependencies[key]:
+                    file_obj.type_preds_cache[func] = mtype_preds
+                    file_obj.num_of_llm_calls[func] = num_of_preds
                     print("No new predictions...", flush=True)
                     project_state.clean_func_dependencies(func_stack)
                     # Add failed function to retry later
@@ -392,6 +399,8 @@ def run_tests(path, args):
                     print(f"Backtracking to dependent function = {next_key}...", flush=True)
                     continue
                 elif len(mtype_preds) == len(file_obj.type_preds_cache[func]):
+                    file_obj.type_preds_cache[func] = mtype_preds
+                    file_obj.num_of_llm_calls[func] = num_of_preds
                     print("No new predictions...", flush=True)
                     project_state.clean_func_dependencies(func_stack)
                     # Add failed function to retry later
@@ -479,7 +488,7 @@ def run_tests(path, args):
                 next_key = project_state.get_least_tested_dependency()
                 func_stack.append(next_key)
                 print(f"Backtracking to dependent function = {next_key}...", flush=True)
-            elif not project_state.is_using_ground_truth():
+            elif not project_state.is_using_ground_truth() and file_obj.total_times_tested[func] < runs_upper_bound[key]:
                 # Add failed function to retry
                 func_stack.append(key)
                 print(f"Trying again function = {key}...", flush=True)
