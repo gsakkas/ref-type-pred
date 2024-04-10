@@ -169,6 +169,12 @@ class ProjectState():
                 code = prog.read()
                 self.files[filename] = LiquidFile(filename, code)
         self.seen_states = {}
+        # Set function not present in the dependencies file to be the ground truth always
+        # This way the user can provide some "easier" refinement types as examples
+        for filename, file_obj in self.files.items():
+            for func in file_obj.liquid_funcs:
+                if (filename, func) not in self.dependencies:
+                    file_obj.set_func_type_to_ground_truth(func, self.max_preds + 1)
         # Current state variables (so we don't have to pass them at every class method)
         self.func = None
         self.filename = None
@@ -371,7 +377,6 @@ def run_tests(path, args):
         if not project_state.is_using_ground_truth() and not project_state.llm_calls_less_than_max():
             print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
             project_state.set_file_func_to_ground()
-            solved = True # FIXME: Should it be solved already?
         elif not project_state.is_using_ground_truth() and project_state.llm_calls_less_than_max() and \
                 (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()) :
             prompt = file_obj.make_prompt_for_func(func)
@@ -424,7 +429,6 @@ def run_tests(path, args):
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
                     project_state.set_file_func_to_ground()
-                    solved = True
             elif len(mtype_preds) < 5:
                 mtype_preds.extend(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args))
                 mtype_preds = list(set(mtype_preds))
@@ -436,7 +440,7 @@ def run_tests(path, args):
         if project_state.is_using_ground_truth():
             print("-" * 42)
             print(f"Testing {{-@ {func} :: {file_obj.ground_truths[func]} @-}}...", flush=True)
-            file_obj.print_type_state()
+            # file_obj.print_type_state()
             solved = project_state.verify_project(args.exec_dir)
             if solved:
                 print("...SAFE", flush=True)
@@ -445,11 +449,11 @@ def run_tests(path, args):
         else:
             type_prediction = project_state.get_next_pred()
             cnt = 0
-            while type_prediction and cnt < 20:
+            while type_prediction and cnt < 100:
                 cnt += 1
                 print("-" * 42)
                 print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
-                # NOTE: Just a random check, cause LH crashes for too long types
+                # Just a random check, cause LH crashes for too long types
                 if len(type_prediction) > len(file_obj.ground_truths[func]) + 32:
                     print("...UNSAFE")
                     type_prediction = project_state.get_next_pred()
@@ -460,7 +464,7 @@ def run_tests(path, args):
                     type_prediction = file_obj.ground_truths[func]
                     print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
                 project_state.set_file_func_type(type_prediction)
-                file_obj.print_type_state()
+                # file_obj.print_type_state()
                 solved = project_state.verify_project(args.exec_dir)
                 if solved:
                     print("...SAFE", flush=True)
@@ -468,69 +472,76 @@ def run_tests(path, args):
                 else:
                     print("...UNSAFE", flush=True)
                     type_prediction = project_state.get_next_pred()
-            if cnt == 20:
-                print("ERRORERRORERRORERROR!!!!")
+            if cnt == 100:
+                print("Something went wrong with getting next type prediction!")
 
         print("-" * 42)
         print("-" * 42)
         if solved:
             print(f"{key} --> SAFE", flush=True)
-            curr_num_of_funcs_tested[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()])
-            total_num_of_correct_funcs[filename] = max(curr_num_of_funcs_tested[filename], total_num_of_correct_funcs[filename])
+            continue
+
+        print(f"{key} --> UNSAFE", flush=True)
+        if dependencies[key] and file_obj.total_times_tested[func] < runs_upper_bound[key]:
+            project_state.clean_func_dependencies(func_stack)
+            # Add failed function to retry later
+            func_stack.append(key)
+            project_state.clean_func()
+            # Add least tested dependency to stack
+            next_key = project_state.get_least_tested_dependency()
+            func_stack.append(next_key)
+            print(f"Backtracking to dependent function = {next_key}...", flush=True)
+        elif not project_state.is_using_ground_truth() and file_obj.total_times_tested[func] < runs_upper_bound[key]:
+            # Add failed function to retry
+            func_stack.append(key)
+            print(f"Trying again function = {key}...", flush=True)
         else:
-            print(f"{key} --> UNSAFE", flush=True)
-            if dependencies[key] and file_obj.total_times_tested[func] < runs_upper_bound[key]:
-                project_state.clean_func_dependencies(func_stack)
-                # Add failed function to retry later
-                func_stack.append(key)
-                project_state.clean_func()
-                # Add least tested dependency to stack
-                next_key = project_state.get_least_tested_dependency()
-                func_stack.append(next_key)
-                print(f"Backtracking to dependent function = {next_key}...", flush=True)
-            elif not project_state.is_using_ground_truth() and file_obj.total_times_tested[func] < runs_upper_bound[key]:
-                # Add failed function to retry
-                func_stack.append(key)
-                print(f"Trying again function = {key}...", flush=True)
-            else:
-                project_state.clean_func_dependencies(func_stack)
-                # Add failed function to retry later
-                func_stack.append(key)
-                project_state.clean_func()
-                # Add a random next key since we don't have any dependencies to check
-                # NOTE: This should happen very rarely or not at all
-                all_keys = project_state.get_all_file_func_pairs()
-                shuffle(all_keys)
-                next_key, i = all_keys[0], 0
+            project_state.clean_func_dependencies(func_stack)
+            # Add failed function to retry later
+            func_stack.append(key)
+            project_state.clean_func()
+            # Add a random next key since we don't have any dependencies to check
+            # NOTE: This should happen very rarely or not at all
+            all_keys = project_state.get_all_file_func_pairs()
+            shuffle(all_keys)
+            next_key, i = all_keys[0], 0
+            next_filename, next_func = next_key
+            next_file_obj = project_state.files[next_filename]
+            while next_key in func_stack and not next_file_obj.using_ground_truth[next_func] and i + 1 < len(all_keys):
+                i += 1
+                next_key = all_keys[i]
                 next_filename, next_func = next_key
                 next_file_obj = project_state.files[next_filename]
-                while next_key in func_stack and not next_file_obj.using_ground_truth[next_func] and i + 1 < len(all_keys):
-                    i += 1
-                    next_key = all_keys[i]
-                    next_filename, next_func = next_key
-                    next_file_obj = project_state.files[next_filename]
-                func_stack.append(next_key)
-                print(f"Backtracking to random function = {next_key}...", flush=True)
+            func_stack.append(next_key)
+            print(f"Backtracking to random function = {next_key}...", flush=True)
 
     total_ground_truths = {}
+    total_num_of_ground_truths_used = 0
+    total_num_of_refinemet_types = 0
     for filename, file_obj in project_state.files.items():
         total_ground_truths[filename] = sum(file_obj.using_ground_truth.values())
+        total_num_of_ground_truths_used += total_ground_truths[filename]
+        total_num_of_refinemet_types += total_num_of_funcs_per_file[filename]
+        curr_num_of_funcs_tested[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()])
+        total_num_of_correct_funcs[filename] = max(curr_num_of_funcs_tested[filename], total_num_of_correct_funcs[filename])
 
     print("=" * 42)
     print("=" * 42)
     for k in sorted(curr_num_of_funcs_tested.keys()):
-        if curr_num_of_funcs_tested[filename] == total_num_of_funcs_per_file[filename]:
+        if curr_num_of_funcs_tested[k] == total_num_of_funcs_per_file[k]:
             fixed_progs += 1
         if total_num_of_funcs_per_file[k] > 0:
-            print(f">>> File {k}")
-            print(f"{curr_num_of_funcs_tested[k]} / {total_num_of_funcs_per_file[k]} exit location")
+            print(f">>> File {k} ({total_num_of_funcs_per_file[k]} refinement types)")
+            if curr_num_of_funcs_tested[k] != total_num_of_funcs_per_file[k]:
+                print(f"File was not fully verified; Exited after solving {curr_num_of_funcs_tested[k]} types")
             print(f"{total_num_of_correct_funcs[k]} / {total_num_of_funcs_per_file[k]} types predicted correctly")
-            print(f"{total_num_of_correct_funcs[k] * 100 / total_num_of_funcs_per_file[k]:.2f}% prediction accuracy")
-            print(f"{total_ground_truths[k]} ground truth types used")
+            print(f"{total_ground_truths[k]} / {total_num_of_funcs_per_file[k]} ground truth types used")
+            print(f"{(total_num_of_correct_funcs[k] - total_ground_truths[k]) * 100 / total_num_of_funcs_per_file[k]:.2f}% prediction accuracy")
             print("-" * 42)
     print("=" * 42)
     print("=" * 42)
     print(f"{fixed_progs} / {total_num_of_progs} programs fully annotated correctly with LH types")
+    print(f"{total_num_of_ground_truths_used} / {total_num_of_refinemet_types} used the ground truth user type")
 
 
 if __name__ == "__main__":
