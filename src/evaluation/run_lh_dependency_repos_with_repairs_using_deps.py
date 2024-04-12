@@ -267,7 +267,10 @@ class ProjectState():
     def is_using_ground_truth(self):
         return self.file_obj.using_ground_truth[self.func]
 
-    def llm_calls_less_than_max(self):
+    def llm_calls_less_than_max(self, filename, func):
+        return self.files[filename].num_of_llm_calls[func] < self.max_preds
+
+    def state_llm_calls_less_than_max(self):
         return self.file_obj.num_of_llm_calls[self.func] < self.max_preds
 
     def has_more_preds_avail(self):
@@ -353,6 +356,7 @@ def run_tests(path, args):
 
     total_num_of_progs = len(project_state.files)
     num_of_iterations = 0
+    total_llm_calls = 0
     func_stack = project_state.get_all_file_func_pairs()
     MAX_ITERATIONS = len(func_stack) * 30
     # print(runs_upper_bound, flush=True)
@@ -362,7 +366,7 @@ def run_tests(path, args):
         file_obj = project_state.files[filename]
         assert isinstance(file_obj, LiquidFile) # NOTE: Just for autocomplete puproses later on
         # If we have generated too many types for all functions
-        if all(project_state.files[fname].num_of_llm_calls[func] >= args.max_preds for fname, func in project_state.get_all_file_func_pairs()):
+        if all(not project_state.llm_calls_less_than_max(fname, fnc) for fname, fnc in project_state.get_all_file_func_pairs()):
             print(f"Reached limit of predictions ({args.max_preds}) for all functions; Exiting...", flush=True)
             break
         # If we had too many iteratin with the whole loop
@@ -374,13 +378,14 @@ def run_tests(path, args):
         print(f"Solving {filename} ({func})...", flush=True)
         solved = False
         # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-        if not project_state.is_using_ground_truth() and not project_state.llm_calls_less_than_max():
+        if not project_state.is_using_ground_truth() and not project_state.state_llm_calls_less_than_max():
             print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
             project_state.set_file_func_to_ground()
-        elif not project_state.is_using_ground_truth() and project_state.llm_calls_less_than_max() and \
+        elif not project_state.is_using_ground_truth() and project_state.state_llm_calls_less_than_max() and \
                 (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()) :
             prompt = file_obj.make_prompt_for_func(func)
             mtype_preds = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
+            total_llm_calls += 1
             num_of_preds = args.total_preds
             if file_obj.type_preds_cache[func]:
                 prev_preds = file_obj.type_preds_cache[func]
@@ -431,6 +436,7 @@ def run_tests(path, args):
                     project_state.set_file_func_to_ground()
             elif len(mtype_preds) < 5:
                 mtype_preds.extend(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args))
+                total_llm_calls += 1
                 mtype_preds = list(set(mtype_preds))
                 num_of_preds += args.total_preds
             if not project_state.is_using_ground_truth():
@@ -545,6 +551,10 @@ def run_tests(path, args):
     print("=" * 42)
     print(f"{fixed_progs} / {total_num_of_progs} programs fully annotated correctly with LH types")
     print(f"{total_num_of_ground_truths_used} / {total_num_of_refinemet_types} used the ground truth user type")
+    print(f"{num_of_iterations} loop iterations (i.e. total number of types checked)")
+    # NOTE: batch_size comes from get_starcoder_code_suggestions.py parameter
+    batch_size = 2
+    print(f"{total_llm_calls * args.total_preds // batch_size} llm calls of {batch_size} type predictions")
 
 
 if __name__ == "__main__":
