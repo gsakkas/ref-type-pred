@@ -190,7 +190,7 @@ class ProjectState():
         for filename, file_obj in self.files.items():
             for func in file_obj.liquid_funcs:
                 if (filename, func) in self.dependencies:
-                    all_funcs.append((self.dependencies[(filename, func)], filename, func))
+                    all_funcs.append((len(self.dependencies[(filename, func)]), filename, func))
         return [(fname, func) for _, fname, func in sorted(all_funcs, key=lambda x: x[0])]
 
     def set_file_func_type(self, ltype):
@@ -357,7 +357,7 @@ def run_tests(path, args):
     total_num_of_progs = len(project_state.files)
     num_of_iterations = 0
     total_llm_calls = 0
-    func_stack = project_state.get_all_file_func_pairs()
+    func_stack = list(reversed(project_state.get_all_file_func_pairs()))
     MAX_ITERATIONS = len(func_stack) * 30
     # print(runs_upper_bound, flush=True)
     while func_stack:
@@ -419,17 +419,20 @@ def run_tests(path, args):
                     # Add a random next key since we don't have any dependencies to check
                     # NOTE: This should happen very rarely or not at all
                     all_keys = project_state.get_all_file_func_pairs()
-                    shuffle(all_keys)
+                    # shuffle(all_keys)
                     next_key, i = all_keys[0], 0
                     next_filename, next_func = next_key
                     next_file_obj = project_state.files[next_filename]
-                    while next_key in func_stack and not next_file_obj.using_ground_truth[next_func] and i + 1 < len(all_keys):
+                    while (next_key in func_stack or next_file_obj.using_ground_truth[next_func]) and i + 1 < len(all_keys):
                         i += 1
                         next_key = all_keys[i]
                         next_filename, next_func = next_key
                         next_file_obj = project_state.files[next_filename]
+                    if i + 1 < len(all_keys):
                         func_stack.append(next_key)
-                    print(f"Backtracking to random function = {next_key}...", flush=True)
+                        print(f"Backtracking to random function = {next_key}...", flush=True)
+                    else:
+                        print("No more available functions to backtrack to...", flush=True)
                     continue
                 elif (len(mtype_preds) > 10 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
                     print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
@@ -509,16 +512,20 @@ def run_tests(path, args):
             # Add a random next key since we don't have any dependencies to check
             # NOTE: This should happen very rarely or not at all
             all_keys = project_state.get_all_file_func_pairs()
-            shuffle(all_keys)
+            # shuffle(all_keys)
             next_key, i = all_keys[0], 0
             next_filename, next_func = next_key
             next_file_obj = project_state.files[next_filename]
-            while next_key in func_stack and not next_file_obj.using_ground_truth[next_func] and i + 1 < len(all_keys):
+            while (next_key in func_stack or next_file_obj.using_ground_truth[next_func]) and i + 1 < len(all_keys):
                 i += 1
                 next_key = all_keys[i]
                 next_filename, next_func = next_key
                 next_file_obj = project_state.files[next_filename]
-            func_stack.append(next_key)
+            if i + 1 < len(all_keys):
+                func_stack.append(next_key)
+                print(f"Backtracking to random function = {next_key}...", flush=True)
+            else:
+                print("No more available functions to backtrack to...", flush=True)
             print(f"Backtracking to random function = {next_key}...", flush=True)
 
     total_ground_truths = {}
