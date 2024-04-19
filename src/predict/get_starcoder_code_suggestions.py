@@ -39,7 +39,7 @@ class StarCoderModel():
     def get_code_suggestions(self, prompt, num_sugg):
         responses = []
         while len(responses) < num_sugg:
-            local_responses = self.get_response_with_retries(prompt, 3, 256)
+            local_responses = self.get_response_with_retries(prompt, 2, 128)
             if not local_responses:
                 return responses
             responses.extend(local_responses)
@@ -85,5 +85,6 @@ class StarCoderModel():
                 return responses
             except Exception as err:
                 print(f"Exception in get_response_with_retries {err}...||...")
+                local_num_seqs //= 2
                 continue
         return None
