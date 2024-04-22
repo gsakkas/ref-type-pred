@@ -4,7 +4,6 @@ from os.path import join, exists
 from torch import cuda
 import gc
 import json
-from random import shuffle
 import re
 import subprocess as subp
 from predict.get_starcoder_code_suggestions import StarCoderModel
@@ -181,9 +180,9 @@ class LiquidFile():
             llm_calls = self.num_of_llm_calls[tfunc]
             curr_idx = self.tested_types_num[tfunc]
             if self.using_ground_truth[tfunc]:
-                print(f">>> [[{tfunc}: {curr_idx}/{preds} | {total_tests} tests | {llm_calls} llm calls | {ltype}]]")
+                print(f">>> [[{tfunc:<23}: {curr_idx}/{preds} | {total_tests} tests | {llm_calls} llm calls | {ltype}]]")
             else:
-                print(f">>> {tfunc}: {curr_idx}/{preds} | {total_tests} tests | {llm_calls} llm calls | {ltype}")
+                print(f">>> {tfunc:<25}: {curr_idx}/{preds} | {total_tests} tests | {llm_calls} llm calls | {ltype}")
 
 
 class ProjectState():
@@ -326,6 +325,9 @@ class ProjectState():
             print("Tested before.....")
             return self.seen_states[str_state]
         self.seen_states[str_state] = False
+        # Just a random check, cause LH crashes for too long types
+        if len(self.file_obj.current_types[self.func]) > len(self.file_obj.ground_truths[self.func]) + 64:
+            return self.seen_states[str_state]
         cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
         cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
         cmds += f"cd {self.exec_path}; "
@@ -623,11 +625,6 @@ def run_tests(path, args):
                 cnt += 1
                 print("-" * 42)
                 print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
-                # Just a random check, cause LH crashes for too long types
-                if len(type_prediction) > len(file_obj.ground_truths[func]) + 64:
-                    print("...UNSAFE")
-                    type_prediction = project_state.get_next_pred()
-                    continue
                 if project_state.get_times_tested_per_pred() >= runs_upper_bound[key]:
                     print("Too many failures for this type; Testing the ground truth type...")
                     project_state.set_file_func_to_ground()
@@ -671,7 +668,6 @@ def run_tests(path, args):
                 func_stack.pop()
                 func_stack.appendleft(key)
         elif not project_state.is_using_ground_truth() and project_state.get_times_tested_per_pred() < runs_upper_bound[key]:
-            # print("Pushing failed function at the beginning of stack...", flush=True)
             print(f"Trying again function {key}...", flush=True)
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
             project_state.clean_func()
@@ -681,28 +677,6 @@ def run_tests(path, args):
             project_state.clean_func()
             # Add failed function to retry later
             func_stack.appendleft(key)
-            # # Add a random next key since we don't have any dependencies to check
-            # # NOTE: This should happen very rarely or not at all
-            # all_keys = project_state.get_all_file_func_pairs()
-            # # shuffle(all_keys)
-            # next_key, i = all_keys[0], 0
-            # next_filename, next_func = next_key
-            # next_file_obj = project_state.files[next_filename]
-            # # while (next_key in func_stack or next_file_obj.current_types[next_func] or next_file_obj.using_ground_truth[next_func]) and i + 1 < len(all_keys):
-            # while (next_key in func_stack or next_file_obj.using_ground_truth[next_func]) and i + 1 < len(all_keys):
-            #     i += 1
-            #     next_key = all_keys[i]
-            #     next_filename, next_func = next_key
-            #     next_file_obj = project_state.files[next_filename]
-            # if i + 1 < len(all_keys):
-            #     print(f"Backtracking to random function = {next_key}...", flush=True)
-            #     func_stack.append(next_key)
-            # else:
-            #     print("No more available functions to backtrack to...", flush=True)
-            #     print("Pushing failed function at the beginning of stack...", flush=True)
-            #     # Removing current key
-            #     func_stack.pop()
-            #     func_stack.appendleft(key)
 
     total_ground_truths = {}
     total_num_of_ground_truths_used = 0
