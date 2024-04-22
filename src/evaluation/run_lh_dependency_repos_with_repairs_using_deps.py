@@ -273,9 +273,6 @@ class ProjectState():
         key = (self.filename, self.func)
         all_deps_are_set = self.deps_have_been_proven()
         next_key = None
-        # next_key = self.dependencies[key][0]
-        # next_filename, next_func = next_key
-        # next_file_obj = self.files[next_filename]
         untested_types = 100000 # len(next_file_obj.type_preds_cache[next_func]) - next_file_obj.tested_types_num[next_func]
         for dep_filename, dep_func in self.dependencies[key]:
             dep_file_obj = self.files[dep_filename]
@@ -297,11 +294,14 @@ class ProjectState():
         return next_key
 
     def get_type_state_key(self):
-        type_state = ""
+        all_states = []
         for filename, file_obj in self.files.items():
             for func, ltype in file_obj.current_types.items():
                 if ltype:
-                    type_state += f"{filename}.{func} :: {ltype}<->"
+                    all_states.append((f"{filename}.{func}", ltype))
+        type_state = ""
+        for file_func, ltype in sorted(all_states):
+            type_state += f"{file_func} :: {ltype}<->"
         type_state = type_state[:-3]
         return type_state
 
@@ -374,12 +374,6 @@ class ProjectState():
     def get_times_tested_per_pred(self):
         # Metric to avoid running too many times a type with too few predictions
         return self.file_obj.total_times_tested[self.func]
-        # key = (self.filename, self.func)
-        # all_runs = self.file_obj.total_times_tested[self.func]
-        # for dep_filename, dep_func in self.dependencies[key]:
-        #     dep_file_obj = self.files[dep_filename]
-        #     all_runs += dep_file_obj.total_times_tested[dep_func]
-        # return all_runs // len(self.file_obj.type_preds_cache[self.func])
 
 
 def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
@@ -533,74 +527,15 @@ def run_tests(path, args):
                 mtype_preds.extend(prev_preds)
                 mtype_preds = list(set(mtype_preds))
                 num_of_preds += file_obj.num_of_llm_calls[func]
-                # NOTE: Exit criteria for the backtracking loop
                 # If the LLM can't generate any new types, then try the ground truth type or go back
                 # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
-                if len(mtype_preds) == len(file_obj.type_preds_cache[func]) and dependencies[key]:
-                    file_obj.type_preds_cache[func] = mtype_preds
-                    file_obj.num_of_llm_calls[func] = num_of_preds
+                if len(mtype_preds) == len(file_obj.type_preds_cache[func]):
                     print("No new predictions...", flush=True)
-                    # project_state.clean_func_dependants_and_add_to_stack(func_stack)
-                    # # Add failed function to retry later
-                    # func_stack.append(key)
-                    # project_state.clean_func()
-                    # # Add least tested dependency to stack
-                    # next_key = project_state.get_least_tested_dependency_not_in_stack(func_stack)
-                    # if next_key:
-                    #     func_stack.append(next_key)
-                    #     print(f"Backtracking to dependent function = {next_key}...", flush=True)
-                    # else:
-                    #     print("No more dependent functions to backtrack to...", flush=True)
-                    #     print("Pushing failed function at the beginning of stack...", flush=True)
-                    #     # Removing current key
-                    #     func_stack.pop()
-                    #     func_stack.appendleft(key)
-                    # continue
-                elif len(mtype_preds) == len(file_obj.type_preds_cache[func]):
-                    file_obj.type_preds_cache[func] = mtype_preds
-                    file_obj.num_of_llm_calls[func] = num_of_preds
-                    print("No new predictions...", flush=True)
-                    # project_state.clean_func_dependants_and_add_to_stack(func_stack)
-                    # # Add failed function to retry later
-                    # func_stack.append(key)
-                    # project_state.clean_func()
-                    # # Add a random next key since we don't have any dependencies to check
-                    # # NOTE: This should happen very rarely or not at all
-                    # all_keys = project_state.get_all_file_func_pairs()
-                    # # shuffle(all_keys)
-                    # next_key, i = all_keys[0], 0
-                    # next_filename, next_func = next_key
-                    # next_file_obj = project_state.files[next_filename]
-                    # # while (next_key in func_stack or next_file_obj.current_types[next_func] or next_file_obj.using_ground_truth[next_func]) and i + 1 < len(all_keys):
-                    # while (next_key in func_stack or next_file_obj.current_types[next_func]) and i + 1 < len(all_keys):
-                    #     i += 1
-                    #     next_key = all_keys[i]
-                    #     next_filename, next_func = next_key
-                    #     next_file_obj = project_state.files[next_filename]
-                    # if i + 1 < len(all_keys):
-                    #     func_stack.append(next_key)
-                    #     print(f"Backtracking to random function = {next_key}...", flush=True)
-                    # else:
-                    #     print("No more available functions to backtrack to...", flush=True)
-                    #     print("Pushing failed function at the beginning of stack...", flush=True)
-                    #     # Removing current key
-                    #     func_stack.pop()
-                    #     func_stack.appendleft(key)
-                    # continue
-                elif (len(mtype_preds) > 20 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
-                    print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
+                # elif (len(mtype_preds) > 20 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
+                elif len(mtype_preds) == 0 and not project_state.is_using_ground_truth():
+                    print(f"Testing the ground truth type, since we got no predictions...", flush=True)
+                    # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
                     project_state.set_file_func_to_ground()
-            elif len(mtype_preds) < 5:
-                # Prompt key includes all predicted types so far, the current file and function and how many times we called with this prompt
-                prompt_key = filename + "--" + func + "<-->" + project_state.get_type_state_key() + "<-->" + str((file_obj.num_of_llm_calls[func] + args.total_preds) // args.total_preds)
-                if prompt_key not in prompt_cache:
-                    prompt_cache[prompt_key] = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
-                    with open(args.cache_file, "w", encoding="utf-8") as cache_file:
-                        cache_file.write(json.dumps(prompt_cache, indent=4))
-                mtype_preds.extend(prompt_cache[prompt_key])
-                total_llm_calls += 1
-                mtype_preds = list(set(mtype_preds))
-                num_of_preds += args.total_preds
             if not project_state.is_using_ground_truth():
                 file_obj.type_preds_cache[func] = mtype_preds
                 file_obj.num_of_llm_calls[func] = num_of_preds
