@@ -6,6 +6,7 @@ import gc
 import json
 import re
 import subprocess as subp
+from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
 
 LIQUID_PRAGMAS = set(["LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
@@ -257,17 +258,33 @@ class ProjectState():
         # Clean up all functions depending on current state function
         # Make sure to not re-add funcions to function state stack
         # TODO: Maybe remove stack logic from here and keep it only in main loop?
+        visited = set()
         key = (self.filename, self.func)
-        for next_key, deps in reversed(self.dependencies.items()):
-            next_filename, next_func = next_key
-            next_file_obj = self.files[next_filename]
-            if key in deps:
-                print(f"Cleaning dependant key {next_key}...")
-                next_file_obj.tested_types_num[next_func] = 0
-                next_file_obj.current_types[next_func] = None
-                if next_key not in stack:
-                    print("And adding it to the stack...")
-                    stack.appendleft(next_key)
+        queue = deque([key])
+        while queue:
+            key = queue.popleft()
+            if key in visited:
+                continue
+            visited.add(key)
+            # for dep_filename, dep_func in self.dependencies[key]:
+            for next_key, deps in reversed(self.dependencies.items()):
+                if key in deps and next_key not in visited and next_key not in queue:
+                    print(f"Cleaning dependant key {next_key}...")
+                    next_filename, next_func = next_key
+                    next_file_obj = self.files[next_filename]
+                    next_file_obj.tested_types_num[next_func] = 0
+                    next_file_obj.current_types[next_func] = None
+                    queue.append(next_key)
+                    if next_key not in stack:
+                        print("And adding it to the stack...")
+                        stack.append(next_key)
+
+    def get_all_dependencies(self):
+        key = (self.filename, self.func)
+        deps = []
+        for dep_filename, dep_func in self.dependencies[key]:
+            deps.append((dep_filename, dep_func))
+        return deps
 
     def get_least_tested_dependency_not_in_stack(self, stack):
         key = (self.filename, self.func)
@@ -288,10 +305,46 @@ class ProjectState():
                 continue
             # temp = len(dep_file_obj.type_preds_cache[dep_func]) - dep_file_obj.tested_types_num[dep_func]
             temp = dep_file_obj.total_times_tested[dep_func]
-            if dep_file_obj.total_times_tested[dep_func] < untested_types:
+            if temp < untested_types:
                 untested_types = temp
                 next_key = (dep_filename, dep_func)
         return next_key
+
+    def get_least_used_dependency_not_in_stack(self, stack):
+        root_key = (self.filename, self.func)
+        queue = deque([root_key])
+        visited = set()
+        parents = {root_key: None}
+        num_of_uses = 100000
+        next_key = None
+        while queue:
+            key = queue.popleft()
+            if key in visited:
+                continue
+            visited.add(key)
+            for dep_filename, dep_func in self.dependencies[key]:
+                dep_file_obj = self.files[dep_filename]
+                candidate_key = (dep_filename, dep_func)
+                parents[candidate_key] = key
+                if candidate_key not in visited and candidate_key not in queue:
+                    temp = dep_file_obj.total_times_tested[dep_func]
+                    queue.append(candidate_key)
+                    if dep_file_obj.current_types[dep_func] and dep_file_obj.using_ground_truth[dep_func]:
+                        # Skip since it has a type already, that is probably correct
+                        print(dep_filename, dep_func, "is already ground truth")
+                        continue
+                    if candidate_key in stack:
+                        print(dep_filename, dep_func, "in stack")
+                        continue
+                    if temp <= num_of_uses:
+                        num_of_uses = temp
+                        next_key = candidate_key
+                        print(f"candidate key ({next_key}) with {num_of_uses} uses so far")
+        res = []
+        while next_key and parents[next_key]:
+            res.append(next_key)
+            next_key = parents[next_key]
+        return res
 
     def get_type_state_key(self):
         all_states = []
@@ -305,12 +358,23 @@ class ProjectState():
         type_state = type_state[:-3]
         return type_state
 
+    def propagate_times_tested_up(self):
+        queue = deque([(self.filename, self.func)])
+        visited = set()
+        while queue:
+            key = queue.popleft()
+            if key in visited:
+                continue
+            visited.add(key)
+            for dep_filename, dep_func in self.dependencies[key]:
+                dep_file_obj = self.files[dep_filename]
+                if (dep_filename, dep_func) not in visited and (dep_filename, dep_func) not in queue:
+                    dep_file_obj.total_times_tested[dep_func] += 1
+                    queue.append((dep_filename, dep_func))
+
     def verify_project(self):
         self.file_obj.total_times_tested[self.func] += 1
-        key = (self.filename, self.func)
-        for dep_filename, dep_func in self.dependencies[key]:
-            dep_file_obj = self.files[dep_filename]
-            dep_file_obj.total_times_tested[dep_func] += 1
+        # self.propagate_times_tested_up()
         # Write to files only here to avoid unnecessary writes
         for filename, file_obj in self.files.items():
             new_code = file_obj.update_types_in_file()
@@ -373,7 +437,35 @@ class ProjectState():
 
     def get_times_tested_per_pred(self):
         # Metric to avoid running too many times a type with too few predictions
-        return self.file_obj.total_times_tested[self.func]
+        return ceil(self.file_obj.total_times_tested[self.func] / sqrt(len(self.file_obj.type_preds_cache[self.func])))
+        # return self.file_obj.total_times_tested[self.func] # // len(self.file_obj.type_preds_cache[self.func])
+
+    def get_functions_with_no_dependants(self):
+        all_keys = self.get_all_file_func_pairs()
+        for deps in self.dependencies.values():
+            for dep_key in deps:
+                if dep_key in all_keys:
+                    all_keys.remove(dep_key)
+        return all_keys
+
+    def set_test_run_limits(self):
+        upper_bounds = {}
+        queue = deque()
+        for key, deps in self.dependencies.items():
+            if len(deps) == 0:
+                queue.append(key)
+                upper_bounds[key] = 30
+        visited = set()
+        while queue:
+            key = queue.popleft()
+            if key in visited:
+                continue
+            visited.add(key)
+            for next_key, deps in self.dependencies.items():
+                if key in deps and next_key not in visited and next_key not in queue:
+                    queue.append(next_key)
+                    upper_bounds[next_key] = upper_bounds[key] - 5
+        return upper_bounds
 
 
 def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
@@ -446,7 +538,7 @@ def run_tests(path, args):
             total_num_of_funcs_per_file[filename] += 1
             total_num_of_correct_funcs[filename] = 0
             curr_num_of_funcs_tested[filename] = 0
-            runs_upper_bound[(filename, func)] = 30 if len(new_dependencies[(filename, func)]) < 2 else 20
+            # runs_upper_bound[(filename, func)] = 10 if len(new_dependencies[(filename, func)]) < 1 else 15
     dependencies = new_dependencies
     # NOTE: Clean-up in case we are missing some file-function pairs?
     for filename, func in dependencies:
@@ -461,9 +553,16 @@ def run_tests(path, args):
 
     total_num_of_progs = len(project_state.files)
     num_of_iterations = 0
-    num_of_skipped = 0
+    # num_of_skipped = 0
+    runs_upper_bound = project_state.set_test_run_limits()
+    for i in runs_upper_bound.items():
+        print(i)
     total_llm_calls = 0
     func_stack = list(reversed(project_state.get_all_file_func_pairs()))
+    root_funcs = list(reversed(project_state.get_functions_with_no_dependants()))
+    for key in root_funcs:
+        func_stack.remove(key)
+    func_stack.extend(root_funcs)
     MAX_ITERATIONS = len(func_stack) * (args.max_preds * 2)
     func_stack = deque(func_stack)
     # print(runs_upper_bound, flush=True)
@@ -480,34 +579,42 @@ def run_tests(path, args):
         if num_of_iterations >= MAX_ITERATIONS:
             print(f"Too many iterations {num_of_iterations}; Exiting...", flush=True)
             break
-        if num_of_skipped > len(func_stack):
-            print("Something went wrong... No more deps could be tested...")
-            print("The remaining stack:")
-            print(f"{filename} --> {func})", flush=True)
-            for _fname, _func in reversed(func_stack):
-                print(f"{_fname} --> {_func}")
-            break
+        # if num_of_skipped > len(func_stack):
+        #     print("Something went wrong... No more deps could be tested...")
+        #     print("The remaining stack:")
+        #     print(f"{filename} --> {func})", flush=True)
+        #     for _fname, _func in reversed(func_stack):
+        #         print(f"{_fname} --> {_func}")
+        #     break
         print("=" * 42)
         print(f"Solving {filename} ({func})...", flush=True)
         if not project_state.deps_have_been_proven():
             # Not all dependencies have a type, thus no need to check this key yet
-            num_of_skipped += 1
-            print(f"Not all dependencies are done yet... Skipping...")
+            # num_of_skipped += 1
+            print(f"Not all dependencies are done yet... Pushing them up the stack...")
             func_stack.append(key)
             # Add least tested dependency to stack
-            next_key = project_state.get_least_tested_dependency_not_in_stack(func_stack)
-            if next_key:
-                func_stack.append(next_key)
-                print(f"Backtracking to dependent function = {next_key}...", flush=True)
-            else:
-                print("No more dependent functions to backtrack to...", flush=True)
-                print("Pushing failed function at the beginning of stack...", flush=True)
-                # Removing current key
-                func_stack.pop()
-                func_stack.appendleft(key)
+            all_deps = project_state.get_all_dependencies()
+            for dep in all_deps:
+                if dep in func_stack:
+                    print(f"{dep} already in stack, pushing up...", flush=True)
+                    func_stack.remove(dep)
+                    func_stack.append(dep)
+                elif not project_state.files[dep[0]].current_types[dep[1]]:
+                    print(f"Adding {dep} in stack...", flush=True)
+                    func_stack.append(dep)
+            # if next_key:
+            #     func_stack.append(next_key)
+            #     print(f"Backtracking to dependent function = {next_key}...", flush=True)
+            # else:
+            #     print("No more dependent functions to backtrack to...", flush=True)
+            #     print("Pushing failed function at the beginning of stack...", flush=True)
+            #     # Removing current key
+            #     func_stack.pop()
+            #     func_stack.appendleft(key)
             continue
         print_stack(func_stack)
-        num_of_skipped = 0
+        # num_of_skipped = 0
         num_of_iterations += 1
         solved = False
         if not project_state.is_using_ground_truth() and project_state.state_llm_calls_less_than_max() and \
@@ -516,33 +623,39 @@ def run_tests(path, args):
             # Prompt key includes all predicted types so far, the current file and function and how many times we called with this prompt
             prompt_key = filename + "--" + func + "<-->" + project_state.get_type_state_key() + "<-->" + str(file_obj.num_of_llm_calls[func] // args.total_preds)
             if prompt_key not in prompt_cache:
-                prompt_cache[prompt_key] = get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)
+                prompt_cache[prompt_key] = list(enumerate(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)))
                 with open(args.cache_file, "w", encoding="utf-8") as cache_file:
                     cache_file.write(json.dumps(prompt_cache, indent=4))
-            mtype_preds = prompt_cache[prompt_key]
+            # for o in prompt_cache[prompt_key]:
+            #     print(o)
+            type_preds = list(map(lambda p: p[1], sorted(prompt_cache[prompt_key], key=lambda p: p[0])))
+            # for o in type_preds:
+            #     print(o)
             total_llm_calls += 1
-            num_of_preds = args.total_preds
-            if file_obj.type_preds_cache[func]:
-                prev_preds = file_obj.type_preds_cache[func]
-                mtype_preds.extend(prev_preds)
-                mtype_preds = list(set(mtype_preds))
-                num_of_preds += file_obj.num_of_llm_calls[func]
-                # If the LLM can't generate any new types, then try the ground truth type or go back
-                # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
-                if len(mtype_preds) == len(file_obj.type_preds_cache[func]):
-                    print("No new predictions...", flush=True)
-                # elif (len(mtype_preds) > 20 or len(mtype_preds) == len(file_obj.type_preds_cache[func]) or len(mtype_preds) == 0) and not project_state.is_using_ground_truth():
-                elif len(mtype_preds) == 0 and not project_state.is_using_ground_truth():
-                    print(f"Testing the ground truth type, since we got no predictions...", flush=True)
-                    # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(mtype_preds)})...", flush=True)
-                    project_state.set_file_func_to_ground()
+            num_of_preds = file_obj.num_of_llm_calls[func] + args.total_preds
+            prev_len = len(file_obj.type_preds_cache[func])
+            all_preds = file_obj.type_preds_cache[func]
+            for pred in type_preds:
+                if pred not in all_preds:
+                    all_preds.append(pred)
+            # type_preds.extend(all_preds)
+            # type_preds = list(set(type_preds))
+            # If the LLM can't generate any new types, then try the ground truth type or go back
+            # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
+            if len(all_preds) == prev_len:
+                print("No new predictions...", flush=True)
+            # elif (len(all_preds) > 20 or len(all_preds) == prev_len or len(all_preds) == 0) and not project_state.is_using_ground_truth():
+            if len(all_preds) == 0 and not project_state.is_using_ground_truth():
+                print(f"Testing the ground truth type, since we got no predictions...", flush=True)
+                # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(all_preds)})...", flush=True)
+                project_state.set_file_func_to_ground()
             if not project_state.is_using_ground_truth():
-                file_obj.type_preds_cache[func] = mtype_preds
+                file_obj.type_preds_cache[func] = all_preds
                 file_obj.num_of_llm_calls[func] = num_of_preds
-        elif not project_state.is_using_ground_truth() and not project_state.state_llm_calls_less_than_max() and not project_state.has_more_preds_avail():
-            # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-            print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
-            project_state.set_file_func_to_ground()
+        # elif not project_state.is_using_ground_truth() and not project_state.state_llm_calls_less_than_max() and not project_state.has_more_preds_avail():
+        #     # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
+        #     print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
+        #     project_state.set_file_func_to_ground()
 
         if project_state.is_using_ground_truth():
             print("-" * 42)
@@ -565,7 +678,8 @@ def run_tests(path, args):
                     project_state.set_file_func_to_ground()
                     type_prediction = file_obj.ground_truths[func]
                     print(f"Testing {{-@ {func} :: {type_prediction} @-}}...", flush=True)
-                project_state.set_file_func_type(type_prediction)
+                else:
+                    project_state.set_file_func_type(type_prediction)
                 solved = project_state.verify_project()
                 if solved:
                     print("...SAFE", flush=True)
@@ -588,20 +702,43 @@ def run_tests(path, args):
         print(f"{key} --> UNSAFE", flush=True)
         if dependencies[key]:
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
-            project_state.clean_func()
+            if not project_state.is_using_ground_truth():
+                project_state.clean_func()
             # Add failed function to retry later
             func_stack.append(key)
             # Add least tested dependency to stack
-            next_key = project_state.get_least_tested_dependency_not_in_stack(func_stack)
-            if next_key:
+            next_keys = project_state.get_least_used_dependency_not_in_stack(func_stack)
+            if next_keys:
+                next_obj = None
+                for next_key in reversed(next_keys):
+                    if next_key in func_stack:
+                        print(f"{next_key} already in stack, pushing up...", flush=True)
+                        func_stack.remove(next_key)
+                    # elif not project_state.files[next_key[0]].current_types[next_key[1]]:
+                    else:
+                        print(f"Adding {next_key} in stack...", flush=True)
+                    func_stack.append(next_key)
+                    next_obj = project_state.files[next_key[0]]
+                    next_obj.tested_types_num[next_key[1]] = max(0, next_obj.tested_types_num[next_key[1]] - 1)
+                    next_obj.current_types[next_key[1]] = None
+                next_obj.total_times_tested[next_key[1]] = max(0, next_obj.total_times_tested[next_key[1]] - 1)
                 print(f"Backtracking to dependent function = {next_key}...", flush=True)
-                func_stack.append(next_key)
             else:
-                print("No more dependent functions to backtrack to...", flush=True)
-                print("Pushing failed function at the beginning of stack...", flush=True)
-                # Removing current key
-                func_stack.pop()
-                func_stack.appendleft(key)
+                print(f"Not all dependencies are correct yet... Pushing them up the stack...")
+                all_deps = project_state.get_all_dependencies()
+                for dep in all_deps:
+                    if dep in func_stack:
+                        print(f"{dep} already in stack, pushing up...", flush=True)
+                        func_stack.remove(dep)
+                        func_stack.append(dep)
+                    elif not project_state.files[dep[0]].current_types[dep[1]]:
+                        print(f"Adding {dep} in stack...", flush=True)
+                        func_stack.append(dep)
+                # print("No more dependent functions to backtrack to...", flush=True)
+                # print("Pushing failed function at the beginning of stack...", flush=True)
+                # # Removing current key
+                # func_stack.pop()
+                # func_stack.appendleft(key)
         elif not project_state.is_using_ground_truth() and project_state.get_times_tested_per_pred() < runs_upper_bound[key]:
             print(f"Trying again function {key}...", flush=True)
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
