@@ -155,7 +155,7 @@ samples_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
 llm_repairs_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
 samples_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
 llm_repairs_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
-path_to_testset = "../liquidhaskell/lh_exercises"
+path_to_testset = "../liquidhaskell/lh_exercises/correct_baselines"
 for k in list(cache.keys()):
     all_progs += 1
     func = k.split("--")[-1]

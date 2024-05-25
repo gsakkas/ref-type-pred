@@ -8,6 +8,7 @@ import re
 import subprocess as subp
 from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
+from evaluation.prog_diff import get_token_differences
 
 LIQUID_PRAGMAS = set(["LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
 
@@ -59,12 +60,13 @@ def print_prog_liquid_types(prog):
 
 def print_stack(stack):
     print("-- stack -------------------------------------")
-    i = len(stack)-1
+    i = len(stack)
     for i, (fname, func) in enumerate(reversed(stack)):
         if i >= 5:
+            i -= 1
             break
         print(f"{fname} --> {func}")
-    print(f"...and {len(stack)-1-i} more functions")
+    print(f"...and {max(0, len(stack)-1-i)} more functions")
     print("----------------------------------------------")
 
 
@@ -87,6 +89,8 @@ class LiquidFile():
             self.using_ground_truth[func] = False
             self.current_types[func] = None
         exports = code.split("    )\nwhere")[0].split('(')[-1].rstrip().rstrip(",")
+        file_prefix = name.replace(".hs", ".")
+        self.exports = set(exports.replace(",", " ").replace(file_prefix, "").strip().split())
         new_exports = exports[:]
         if self.name == "Rowround.hs":
             new_exports += ", elts"
@@ -128,9 +132,12 @@ class LiquidFile():
     def set_func_type_to_ground_truth(self, func, max_preds):
         self.current_types[func] = self.ground_truths[func]
         self.using_ground_truth[func] = True
-        self.type_preds_cache[func] = [self.ground_truths[func]]
+        # self.type_preds_cache[func] = [self.ground_truths[func]]
         self.num_of_llm_calls[func] = max_preds
         self.tested_types_num[func] = 0
+
+    def is_exported(self, func):
+        return func in self.exports
 
     def make_prompt_for_func(self, func):
         FIM_PREFIX = "<fim_prefix>"
@@ -170,6 +177,7 @@ class LiquidFile():
         # print(next_pred_id, len(self.type_preds_cache[func]))
         if next_pred_id < len(self.type_preds_cache[func]):
             type_pred = self.type_preds_cache[func][next_pred_id]
+            # type_pred = list(reversed(self.type_preds_cache[func]))[next_pred_id]
             self.tested_types_num[func] = next_pred_id + 1
             return type_pred
         return None
@@ -250,6 +258,7 @@ class ProjectState():
             self.files[dep_filename].tested_types_num[dep_func] = 0
 
     def clean_func(self):
+        # self.file_obj.tested_types_num[self.func] = max(0, self.file_obj.tested_types_num[self.func] - 1)
         self.file_obj.tested_types_num[self.func] = 0
         # if not self.file_obj.using_ground_truth[self.func]:
         self.file_obj.current_types[self.func] = None
@@ -273,6 +282,7 @@ class ProjectState():
                     next_filename, next_func = next_key
                     next_file_obj = self.files[next_filename]
                     next_file_obj.tested_types_num[next_func] = 0
+                    # next_file_obj.tested_types_num[next_func] = max(0, next_file_obj.tested_types_num[next_func] - 1)
                     next_file_obj.current_types[next_func] = None
                     queue.append(next_key)
                     if next_key not in stack:
@@ -437,8 +447,8 @@ class ProjectState():
 
     def get_times_tested_per_pred(self):
         # Metric to avoid running too many times a type with too few predictions
-        return ceil(self.file_obj.total_times_tested[self.func] / sqrt(len(self.file_obj.type_preds_cache[self.func])))
-        # return self.file_obj.total_times_tested[self.func] # // len(self.file_obj.type_preds_cache[self.func])
+        # return ceil(self.file_obj.total_times_tested[self.func] / sqrt(len(self.file_obj.type_preds_cache[self.func])))
+        return self.file_obj.total_times_tested[self.func] # // len(self.file_obj.type_preds_cache[self.func])
 
     def get_functions_with_no_dependants(self):
         all_keys = self.get_all_file_func_pairs()
@@ -454,17 +464,19 @@ class ProjectState():
         for key, deps in self.dependencies.items():
             if len(deps) == 0:
                 queue.append(key)
-                upper_bounds[key] = 30
+                upper_bounds[key] = 40
         visited = set()
         while queue:
             key = queue.popleft()
             if key in visited:
                 continue
+            # if not self.files[key[0]].is_exported(key[1]):
+            #     upper_bounds[key] += 5
             visited.add(key)
             for next_key, deps in self.dependencies.items():
                 if key in deps and next_key not in visited and next_key not in queue:
                     queue.append(next_key)
-                    upper_bounds[next_key] = upper_bounds[key] - 5
+                    upper_bounds[next_key] = upper_bounds[key] + 5
         return upper_bounds
 
 
@@ -507,6 +519,41 @@ def flip_properties(prog, curr_type):
 
     llm_prog = curr_type.join(prog_parts)
     return llm_prog
+
+
+def is_ground_truth_in_top_n_preds(func, ground_truth, type_preds, n=5):
+    top_preds = type_preds[:n]
+    if ground_truth in top_preds:
+        print(f"These '{func}' types are the same: {ground_truth} {ground_truth}")
+        return True
+    for type_pred in top_preds:
+        orig_parts: list[str] = []
+        pred_parts: list[str] = []
+        _, orig_parts, pred_parts = get_token_differences(ground_truth, type_pred)
+        aliases = {}
+        are_different = False
+        for opart, ppart in zip(orig_parts, pred_parts):
+            if "{" in opart or "}" in opart or ":" in opart or "|" in opart:
+                are_different = True
+                break
+            if "{" in ppart or "}" in ppart or ":" in ppart or "|" in ppart:
+                are_different = True
+                break
+            if opart.isnumeric() or ppart.isnumeric():
+                are_different = True
+                break
+            if opart == "_" and ppart != "_":
+                are_different = True
+                break
+            if opart != "_" and ppart != "_" and opart not in aliases:
+                aliases[opart] = ppart
+            elif opart in aliases and aliases[opart] != ppart:
+                are_different = True
+                break
+        if not are_different:
+            print(f"These '{func}' types are similar: {ground_truth} {type_pred}")
+            return True
+    return False
 
 
 def run_tests(path, args):
@@ -563,7 +610,7 @@ def run_tests(path, args):
     for key in root_funcs:
         func_stack.remove(key)
     func_stack.extend(root_funcs)
-    MAX_ITERATIONS = len(func_stack) * (args.max_preds * 2)
+    MAX_ITERATIONS = len(func_stack) * (args.max_preds * 3)
     func_stack = deque(func_stack)
     # print(runs_upper_bound, flush=True)
     while func_stack:
@@ -626,11 +673,16 @@ def run_tests(path, args):
                 prompt_cache[prompt_key] = list(enumerate(get_type_predictions(prompt, filename, func, file_obj.ground_truths[func], code_llm, args)))
                 with open(args.cache_file, "w", encoding="utf-8") as cache_file:
                     cache_file.write(json.dumps(prompt_cache, indent=4))
-            # for o in prompt_cache[prompt_key]:
-            #     print(o)
             type_preds = list(map(lambda p: p[1], sorted(prompt_cache[prompt_key], key=lambda p: p[0])))
-            # for o in type_preds:
-            #     print(o)
+            print(f"Got from cache or LLM {len(type_preds)} type predictions...")
+            # if not file_obj.is_exported(func):
+            #     type_preds = [tpred for tpred in type_preds if tpred.split("->")[-1].strip() not in ["_", "[_]"]]
+            #     print(f"Kept only {len(type_preds)} type predictions for exported function...")
+            # else:
+            #     parts = len(file_obj.ground_truths[func].split("->"))
+            #     naive_type = " -> ".join(["_"] * parts)
+            #     print(f"Added {naive_type} to type predictions for local function...")
+            #     type_preds.append(naive_type)
             total_llm_calls += 1
             num_of_preds = file_obj.num_of_llm_calls[func] + args.total_preds
             prev_len = len(file_obj.type_preds_cache[func])
@@ -638,8 +690,6 @@ def run_tests(path, args):
             for pred in type_preds:
                 if pred not in all_preds:
                     all_preds.append(pred)
-            # type_preds.extend(all_preds)
-            # type_preds = list(set(type_preds))
             # If the LLM can't generate any new types, then try the ground truth type or go back
             # NOTE: Or if LLM generates too many different types (heuristic), probably they are not that good
             if len(all_preds) == prev_len:
@@ -734,11 +784,6 @@ def run_tests(path, args):
                     elif not project_state.files[dep[0]].current_types[dep[1]]:
                         print(f"Adding {dep} in stack...", flush=True)
                         func_stack.append(dep)
-                # print("No more dependent functions to backtrack to...", flush=True)
-                # print("Pushing failed function at the beginning of stack...", flush=True)
-                # # Removing current key
-                # func_stack.pop()
-                # func_stack.appendleft(key)
         elif not project_state.is_using_ground_truth() and project_state.get_times_tested_per_pred() < runs_upper_bound[key]:
             print(f"Trying again function {key}...", flush=True)
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
@@ -750,15 +795,31 @@ def run_tests(path, args):
             # Add failed function to retry later
             func_stack.appendleft(key)
 
-    total_ground_truths = {}
+    total_ground_truths = defaultdict(int)
     total_num_of_ground_truths_used = 0
     total_num_of_refinemet_types = 0
     for filename, file_obj in project_state.files.items():
         given_by_user = 0
-        for func in file_obj.liquid_funcs:
+        assert isinstance(file_obj, LiquidFile)
+        for func in file_obj.current_types:
             if (filename, func) not in project_state.dependencies:
                 given_by_user += 1
-        total_ground_truths[filename] = sum(file_obj.using_ground_truth.values()) - given_by_user
+            if file_obj.using_ground_truth[func]: # and is_ground_truth_in_top_n_preds(func, file_obj.ground_truths[func], file_obj.type_preds_cache[func]):
+                # print(is_ground_truth_in_top_n_preds(func, file_obj.ground_truths[func], file_obj.type_preds_cache[func]))
+                # Temporarily unset ground truth, so we can use predictions again
+                file_obj.using_ground_truth[func] = False
+                project_state.update_current_state(filename, func)
+                for type_prediction in file_obj.type_preds_cache[func][:5]:
+                    project_state.set_file_func_type(type_prediction)
+                    solved = project_state.verify_project()
+                    if solved:
+                        print(f"These '{func}' types are similar:")
+                        print(f"ground truth: {file_obj.ground_truths[func]}")
+                        print(f"prediction  : {type_prediction}")
+                        total_ground_truths[filename] -= 1
+                        break
+                file_obj.using_ground_truth[func] = True
+        total_ground_truths[filename] += sum(file_obj.using_ground_truth.values()) - given_by_user
         total_num_of_ground_truths_used += total_ground_truths[filename]
         total_num_of_refinemet_types += total_num_of_funcs_per_file[filename]
         total_num_of_correct_funcs[filename] = sum([1 if f else 0 for f in file_obj.current_types.values()]) - given_by_user
