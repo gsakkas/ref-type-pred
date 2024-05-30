@@ -30,6 +30,7 @@ class StarCoderModel():
         # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/final_checkpoint")
         # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/checkpoint-12650")
         # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/final_checkpoint")
+        # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps/checkpoint-13800")
         model = model.merge_and_unload()
 
         self.tokenizer = tokenizer
@@ -39,7 +40,7 @@ class StarCoderModel():
     def get_code_suggestions(self, prompt, num_sugg):
         responses = []
         while len(responses) < num_sugg:
-            local_responses = self.get_response_with_retries(prompt, 2, 128)
+            local_responses = self.get_response_with_retries(prompt, 4, 128)
             if not local_responses:
                 return responses
             responses.extend(local_responses)
@@ -76,7 +77,7 @@ class StarCoderModel():
                 predictions = self.model.generate(input_ids=input_ids,
                                             pad_token_id=self.tokenizer.eos_token_id,
                                             do_sample=True,
-                                            temperature=0.98,
+                                            temperature=0.8,
                                             top_k=100,
                                             top_p=0.95,
                                             num_return_sequences=local_num_seqs,

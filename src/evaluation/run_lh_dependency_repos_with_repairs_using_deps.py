@@ -325,31 +325,32 @@ class ProjectState():
         queue = deque([root_key])
         visited = set()
         parents = {root_key: None}
-        num_of_uses = 100000
+        num_of_uses = float("inf")
         next_key = None
-        while queue:
-            key = queue.popleft()
-            if key in visited:
-                continue
-            visited.add(key)
-            for dep_filename, dep_func in self.dependencies[key]:
-                dep_file_obj = self.files[dep_filename]
-                candidate_key = (dep_filename, dep_func)
-                parents[candidate_key] = key
-                if candidate_key not in visited and candidate_key not in queue:
-                    temp = dep_file_obj.total_times_tested[dep_func]
-                    queue.append(candidate_key)
-                    if dep_file_obj.current_types[dep_func] and dep_file_obj.using_ground_truth[dep_func]:
-                        # Skip since it has a type already, that is probably correct
-                        print(dep_filename, dep_func, "is already ground truth")
-                        continue
-                    if candidate_key in stack:
-                        print(dep_filename, dep_func, "in stack")
-                        continue
-                    if temp <= num_of_uses:
-                        num_of_uses = temp
-                        next_key = candidate_key
-                        print(f"candidate key ({next_key}) with {num_of_uses} uses so far")
+        while queue and num_of_uses == float("inf"):
+            for _ in range(len(queue)):
+                key = queue.popleft()
+                if key in visited:
+                    continue
+                visited.add(key)
+                for dep_filename, dep_func in self.dependencies[key]:
+                    dep_file_obj = self.files[dep_filename]
+                    candidate_key = (dep_filename, dep_func)
+                    parents[candidate_key] = key
+                    if candidate_key not in visited and candidate_key not in queue:
+                        temp = dep_file_obj.total_times_tested[dep_func] / max(0.1, len(dep_file_obj.type_preds_cache[dep_func]))
+                        queue.append(candidate_key)
+                        if dep_file_obj.current_types[dep_func] and dep_file_obj.using_ground_truth[dep_func]:
+                            # Skip since it has a type already, that is probably correct
+                            print(dep_filename, dep_func, "is already ground truth")
+                            continue
+                        if candidate_key in stack:
+                            print(dep_filename, dep_func, "in stack")
+                            continue
+                        if temp < num_of_uses:
+                            num_of_uses = temp
+                            next_key = candidate_key
+                            print(f"candidate key ({next_key}) with {num_of_uses} uses so far")
         res = []
         while next_key and parents[next_key]:
             res.append(next_key)
@@ -397,6 +398,8 @@ class ProjectState():
         str_state = self.get_type_state_key()
         if str_state in self.seen_states:
             print("Tested before.....")
+            if not self.seen_states[str_state]:
+                self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
             return self.seen_states[str_state]
         self.seen_states[str_state] = False
         # Just a random check, cause LH crashes for too long types
@@ -414,6 +417,8 @@ class ProjectState():
         # print(">>" * 42)
         if result != "" and "UNSAFE" not in result and "Error:" not in result and "SAFE" in result:
             self.seen_states[str_state] = True
+        if not self.seen_states[str_state]:
+            self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
         return self.seen_states[str_state]
 
     def is_using_ground_truth(self):
@@ -448,7 +453,7 @@ class ProjectState():
     def get_times_tested_per_pred(self):
         # Metric to avoid running too many times a type with too few predictions
         # return ceil(self.file_obj.total_times_tested[self.func] / sqrt(len(self.file_obj.type_preds_cache[self.func])))
-        return self.file_obj.total_times_tested[self.func] # // len(self.file_obj.type_preds_cache[self.func])
+        return self.file_obj.total_times_tested[self.func] // max(1, len(self.file_obj.type_preds_cache[self.func]))
 
     def get_functions_with_no_dependants(self):
         all_keys = self.get_all_file_func_pairs()
@@ -464,7 +469,7 @@ class ProjectState():
         for key, deps in self.dependencies.items():
             if len(deps) == 0:
                 queue.append(key)
-                upper_bounds[key] = 40
+                upper_bounds[key] = 7
         visited = set()
         while queue:
             key = queue.popleft()
@@ -476,7 +481,7 @@ class ProjectState():
             for next_key, deps in self.dependencies.items():
                 if key in deps and next_key not in visited and next_key not in queue:
                     queue.append(next_key)
-                    upper_bounds[next_key] = upper_bounds[key] + 5
+                    upper_bounds[next_key] = upper_bounds[key] + 1
         return upper_bounds
 
 
@@ -675,13 +680,15 @@ def run_tests(path, args):
                     cache_file.write(json.dumps(prompt_cache, indent=4))
             type_preds = list(map(lambda p: p[1], sorted(prompt_cache[prompt_key], key=lambda p: p[0])))
             print(f"Got from cache or LLM {len(type_preds)} type predictions...")
-            # if not file_obj.is_exported(func):
+            # if file_obj.is_exported(func):
             #     type_preds = [tpred for tpred in type_preds if tpred.split("->")[-1].strip() not in ["_", "[_]"]]
             #     print(f"Kept only {len(type_preds)} type predictions for exported function...")
             # else:
             #     parts = len(file_obj.ground_truths[func].split("->"))
             #     naive_type = " -> ".join(["_"] * parts)
             #     print(f"Added {naive_type} to type predictions for local function...")
+            #     if naive_type in type_preds:
+            #         type_preds.remove(naive_type)
             #     type_preds.append(naive_type)
             total_llm_calls += 1
             num_of_preds = file_obj.num_of_llm_calls[func] + args.total_preds
@@ -752,26 +759,34 @@ def run_tests(path, args):
         print(f"{key} --> UNSAFE", flush=True)
         if dependencies[key]:
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
-            if not project_state.is_using_ground_truth():
-                project_state.clean_func()
+            # if not project_state.is_using_ground_truth():
+            project_state.clean_func()
             # Add failed function to retry later
             func_stack.append(key)
             # Add least tested dependency to stack
             next_keys = project_state.get_least_used_dependency_not_in_stack(func_stack)
             if next_keys:
                 next_obj = None
+                next_key = None
+                next_file, next_func = None, None
                 for next_key in reversed(next_keys):
+                    next_file, next_func = next_key
                     if next_key in func_stack:
                         print(f"{next_key} already in stack, pushing up...", flush=True)
                         func_stack.remove(next_key)
-                    # elif not project_state.files[next_key[0]].current_types[next_key[1]]:
                     else:
                         print(f"Adding {next_key} in stack...", flush=True)
                     func_stack.append(next_key)
-                    next_obj = project_state.files[next_key[0]]
-                    next_obj.tested_types_num[next_key[1]] = max(0, next_obj.tested_types_num[next_key[1]] - 1)
-                    next_obj.current_types[next_key[1]] = None
-                next_obj.total_times_tested[next_key[1]] = max(0, next_obj.total_times_tested[next_key[1]] - 1)
+                    next_obj = project_state.files[next_file]
+                    if not project_state.is_using_ground_truth():
+                        next_obj.tested_types_num[next_func] = max(0, next_obj.tested_types_num[next_func] - 1)
+                    else:
+                        next_obj.tested_types_num[next_func] = 0
+                    next_obj.current_types[next_func] = None
+                    next_obj.total_times_tested[next_func] = max(0, next_obj.total_times_tested[next_func] - 1)
+                if not project_state.is_using_ground_truth():
+                    next_obj.tested_types_num[next_func] += 1
+                next_obj.total_times_tested[next_func] += 1
                 print(f"Backtracking to dependent function = {next_key}...", flush=True)
             else:
                 print(f"Not all dependencies are correct yet... Pushing them up the stack...")
@@ -784,16 +799,18 @@ def run_tests(path, args):
                     elif not project_state.files[dep[0]].current_types[dep[1]]:
                         print(f"Adding {dep} in stack...", flush=True)
                         func_stack.append(dep)
-        elif not project_state.is_using_ground_truth() and project_state.get_times_tested_per_pred() < runs_upper_bound[key]:
+        # elif not project_state.is_using_ground_truth() and project_state.get_times_tested_per_pred() < runs_upper_bound[key]:
+        #     print(f"Trying again function {key}...", flush=True)
+        #     project_state.clean_func_dependants_and_add_to_stack(func_stack)
+        #     project_state.clean_func()
+        #     func_stack.append(key)
+        else:
             print(f"Trying again function {key}...", flush=True)
             project_state.clean_func_dependants_and_add_to_stack(func_stack)
             project_state.clean_func()
-            func_stack.append(key)
-        else:
-            project_state.clean_func_dependants_and_add_to_stack(func_stack)
-            project_state.clean_func()
             # Add failed function to retry later
-            func_stack.appendleft(key)
+            func_stack.append(key)
+            # func_stack.appendleft(key)
 
     total_ground_truths = defaultdict(int)
     total_num_of_ground_truths_used = 0
@@ -804,21 +821,21 @@ def run_tests(path, args):
         for func in file_obj.current_types:
             if (filename, func) not in project_state.dependencies:
                 given_by_user += 1
-            if file_obj.using_ground_truth[func]: # and is_ground_truth_in_top_n_preds(func, file_obj.ground_truths[func], file_obj.type_preds_cache[func]):
+            elif file_obj.using_ground_truth[func]: # and is_ground_truth_in_top_n_preds(func, file_obj.ground_truths[func], file_obj.type_preds_cache[func]):
                 # print(is_ground_truth_in_top_n_preds(func, file_obj.ground_truths[func], file_obj.type_preds_cache[func]))
                 # Temporarily unset ground truth, so we can use predictions again
                 file_obj.using_ground_truth[func] = False
                 project_state.update_current_state(filename, func)
-                for type_prediction in file_obj.type_preds_cache[func][:5]:
+                for idx, type_prediction in enumerate(file_obj.type_preds_cache[func]):
                     project_state.set_file_func_type(type_prediction)
                     solved = project_state.verify_project()
                     if solved:
                         print(f"These '{func}' types are similar:")
                         print(f"ground truth: {file_obj.ground_truths[func]}")
-                        print(f"prediction  : {type_prediction}")
+                        print(f"prediction {idx+1} : {type_prediction}")
                         total_ground_truths[filename] -= 1
                         break
-                file_obj.using_ground_truth[func] = True
+                project_state.set_file_func_to_ground()
         total_ground_truths[filename] += sum(file_obj.using_ground_truth.values()) - given_by_user
         total_num_of_ground_truths_used += total_ground_truths[filename]
         total_num_of_refinemet_types += total_num_of_funcs_per_file[filename]
