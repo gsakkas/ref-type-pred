@@ -10,8 +10,8 @@ from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
 from evaluation.prog_diff import get_token_differences
 
-LIQUID_PRAGMAS = set(["LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
-
+LIQUID_PRAGMAS = set(["predicate", "embed", "liquid", "LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
+GITHUB_REPO = None
 
 def get_args():
     parser = argparse.ArgumentParser(description='run_dependency_lh_tests')
@@ -88,7 +88,10 @@ class LiquidFile():
             self.ground_truths[func] = clean_type(ground_truth)
             self.using_ground_truth[func] = False
             self.current_types[func] = None
-        exports = code.split("    )\nwhere")[0].split('(')[-1].rstrip().rstrip(",")
+        if GITHUB_REPO == "hsalsa20":
+            exports = code.split("    )\nwhere")[0].split('(')[-1].rstrip().rstrip(",")
+        else:
+            exports = code.split("  ) where")[0].split('(')[-1].rstrip().rstrip(",")
         file_prefix = name.replace(".hs", ".")
         self.exports = set(exports.replace(",", " ").replace(file_prefix, "").strip().split())
         new_exports = exports[:]
@@ -99,7 +102,8 @@ class LiquidFile():
                 continue
             if func not in exports:
                 new_exports += f", {func}"
-        self.code = self.code.replace(exports, new_exports)
+        # FIXME: we probably need the next line, here or in some other form
+        # self.code = self.code.replace(exports, new_exports)
         self.type_preds_cache = {func: [] for func in self.current_types} # To check locally,
         # how many predictions in this current state we've tested for this type (for backtracking)
         self.total_times_tested = {func: 0 for func in self.current_types} # To check globally,
@@ -110,17 +114,17 @@ class LiquidFile():
     def update_types_in_file(self):
         llm_prog = self.code
         for func, ltype in self.current_types.items():
-            pattern = re.escape(self.liquid_types[func]) + r"\s*?\n"
+            pattern = re.escape(self.liquid_types[func]) # + r"\s*?\n"
             if ltype:
                 # Replace type in file
                 # NOTE: need to take care of possible '\f ->' in predicted types
                 # '\\'s are evaluated to one '\' when subing, so we need to add another one
                 if "\\" in ltype:
                     ltype = ltype.replace("\\", "\\\\")
-                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}\n", llm_prog, 1)
+                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}", llm_prog, 1)
             else:
                 # Ignore the function
-                llm_prog = re.sub(pattern, f"{{-@ ignore {func} @-}}\n", llm_prog, 1)
+                llm_prog = re.sub(pattern, f"{{-@ ignore {func} @-}}", llm_prog, 1)
         return llm_prog
 
     def set_func_type(self, func, ltype):
@@ -150,16 +154,16 @@ class LiquidFile():
         # TODO: Try to keep only dependencies or functions that have types
         parts = llm_prog.split('-}')
         llm_prog = '-}'.join(parts[1:]).strip()
-        pattern = re.escape(self.liquid_types[func]) + r"\s*?\n"
+        pattern = re.escape(self.liquid_types[func]) # + r"\s*?\n"
         # Mask the type that we want to predict for
-        llm_prog = re.sub(pattern, f"{{-@ {func} :: <fimask> @-}}\n", llm_prog, 1)
+        llm_prog = re.sub(pattern, f"{{-@ {func} :: <fimask> @-}}", llm_prog, 1)
         # Remove any types that we have not predicted for or used yet, and keep rest of the predictions
         for tfunc, ltype in self.current_types.items():
             if tfunc == func:
                 continue
-            pattern = re.escape(self.liquid_types[tfunc]) + r"\s*?\n"
+            pattern = re.escape(self.liquid_types[tfunc]) # + r"\s*?\n"
             if ltype:
-                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}\n", llm_prog, 1)
+                llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}", llm_prog, 1)
             # FIXME: If don't have any types in the prompt in the first tries, the predictions are not good (few-shot learning)
             # TODO: Maybe add a few fixed examples, like the user provided them
             else:
@@ -195,31 +199,50 @@ class LiquidFile():
 
 
 class ProjectState():
-    def __init__(self, path, exec_path, all_files, dependencies, max_preds):
+    def __init__(self, exec_path, all_files, dependencies, max_preds):
         # Global state variables
-        self.path = path
         self.exec_path = exec_path
+        self.src_path = exec_path
+        if GITHUB_REPO == "hsalsa20":
+            self.src_path = join(self.src_path, "src")
         self.max_preds = max_preds
         self.dependencies = dependencies
         self.files = OrderedDict()
         self.curr_file_code = {}
+        self.upper_bounds = {}
         # Clean repo
         print("Initializing and cleaning up repo...", flush=True)
         cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
         cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
         cmds += f"cd {self.exec_path}; "
-        cmds += f"git restore src; "
+        if GITHUB_REPO == "hsalsa20":
+            cmds += f"git restore src; "
+        else:
+            cmds += f"git restore Data; "
         cmds += f"stack build"
         subp.run(cmds, shell=True, check=False, capture_output=True)
         for filename in all_files:
-            with open(join(path, filename), "r", encoding="utf-8") as prog:
+            with open(join(self.src_path, filename), "r", encoding="utf-8") as prog:
                 code = prog.read()
                 self.files[filename] = LiquidFile(filename, code)
                 self.curr_file_code[filename] = self.files[filename].code # To capture the updated exports
         self.seen_states = {}
         # Set function not present in the dependencies file to be the ground truth always
         # This way the user can provide some "easier" refinement types as examples
-        for filename, file_obj in self.files.items():
+        for key in list(self.dependencies.keys()):
+            filename, func = key
+            file_obj = self.files[filename]
+            if func not in file_obj.liquid_types:
+                del self.dependencies[key]
+
+        for key in list(self.dependencies.keys()):
+            self.dependencies[key] = [(filename, func) for filename, func in self.dependencies[key] if func in self.files[filename].liquid_types]
+
+        # Delete functions that don't have refinement types
+        for filename, file_obj in list(self.files.items()):
+            if not file_obj.current_types:
+                del self.files[filename]
+                continue
             for func in file_obj.current_types:
                 if (filename, func) not in self.dependencies:
                     file_obj.set_func_type_to_ground_truth(func, self.max_preds + 1)
@@ -243,7 +266,7 @@ class ProjectState():
         for filename, file_obj in self.files.items():
             for func in file_obj.current_types:
                 if (filename, func) in self.dependencies:
-                    all_funcs.append(((len(self.dependencies[(filename, func)]), filename, func), filename, func))
+                    all_funcs.append(((self.upper_bounds[(filename, func)], filename, func), filename, func))
         return [(fname, func) for _, fname, func in sorted(all_funcs, key=lambda x: x[0])]
 
     def set_file_func_type(self, ltype):
@@ -393,7 +416,7 @@ class ProjectState():
             # print_prog_liquid_types(new_code)
             if self.curr_file_code[filename] != new_code:
                 self.curr_file_code[filename] = new_code
-                with open(join(self.path, filename), "w", encoding="utf-8") as prog:
+                with open(join(self.src_path, filename), "w", encoding="utf-8") as prog:
                     prog.write(new_code)
         str_state = self.get_type_state_key()
         if str_state in self.seen_states:
@@ -413,9 +436,16 @@ class ProjectState():
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stderr.decode('utf-8').strip()
         # print("<<" * 42)
-        # print("/home/gsakkas/hsalsa20".join(result.split("/home/gsakkas/hsalsa20")[1:]))
+        # if GITHUB_REPO == "hsalsa20":
+        #     print("/home/gsakkas/hsalsa20".join(result.split("/home/gsakkas/hsalsa20")[1:]))
+        # else:
+        #     print("/home/gsakkas/bytestring_lh-llm".join(result.split("/home/gsakkas/bytestring_lh-llm")[1:]))
         # print(">>" * 42)
-        if result != "" and "UNSAFE" not in result and "Error:" not in result and "SAFE" in result:
+        if GITHUB_REPO == "hsalsa20" and \
+            result != "" and "UNSAFE" not in result and "Error:" not in result and "SAFE" in result:
+            self.seen_states[str_state] = True
+        elif GITHUB_REPO == "bytestring" and \
+            result != "" and "UNSAFE" not in result and "[17 of 34] Compiling Data.ByteString.Builder.RealFloat.Internal" in result:
             self.seen_states[str_state] = True
         if not self.seen_states[str_state]:
             self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
@@ -464,25 +494,25 @@ class ProjectState():
         return all_keys
 
     def set_test_run_limits(self):
-        upper_bounds = {}
+        self.upper_bounds = {}
         queue = deque()
         for key, deps in self.dependencies.items():
             if len(deps) == 0:
                 queue.append(key)
-                upper_bounds[key] = 7
+                self.upper_bounds[key] = 10
         visited = set()
         while queue:
             key = queue.popleft()
             if key in visited:
                 continue
             # if not self.files[key[0]].is_exported(key[1]):
-            #     upper_bounds[key] += 5
+            #     self.upper_bounds[key] += 5
             visited.add(key)
             for next_key, deps in self.dependencies.items():
                 if key in deps and next_key not in visited and next_key not in queue:
                     queue.append(next_key)
-                    upper_bounds[next_key] = upper_bounds[key] + 1
-        return upper_bounds
+                    self.upper_bounds[next_key] = self.upper_bounds[key] + 1
+        return self.upper_bounds
 
 
 def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
@@ -503,27 +533,6 @@ def get_type_predictions(prompt, filename, func_name, ground_truth, llm, args):
     cuda.empty_cache()
     gc.collect()
     return prog_preds[:10]
-
-
-def flip_properties(prog, curr_type):
-    # Disable any properties that can't be used yet
-    prog_parts = prog.split(curr_type)
-    if "prop_" in prog_parts[1]:
-        prog_parts[1] = re.sub(r"{-@\s*?prop_", "{-- prop_", prog_parts[1])
-    if "example_" in prog_parts[1]:
-        prog_parts[1] = re.sub(r"{-@\s*?example_", "{-- example_", prog_parts[1])
-    if "test_" in prog_parts[1]:
-        prog_parts[1] = re.sub(r"{-@\s*?test_", "{-- test_", prog_parts[1])
-    # Enable any properties that can be used now
-    if "prop_" in prog_parts[0]:
-        prog_parts[0] = prog_parts[0].replace("{-- prop_", "{-@ prop_")
-    if "example_" in prog_parts[0]:
-        prog_parts[0] = prog_parts[0].replace("{-- example_", "{-@ example_")
-    if "test_" in prog_parts[0]:
-        prog_parts[0] = prog_parts[0].replace("{-- test_", "{-@ test_")
-
-    llm_prog = curr_type.join(prog_parts)
-    return llm_prog
 
 
 def is_ground_truth_in_top_n_preds(func, ground_truth, type_preds, n=5):
@@ -561,10 +570,15 @@ def is_ground_truth_in_top_n_preds(func, ground_truth, type_preds, n=5):
     return False
 
 
-def run_tests(path, args):
+def run_tests(args):
     dependencies = {}
     prompt_cache = {}
-    with open("./benchmarks/hsalsa20_dependencies_with_initialization_and_indirect_deps.json", "r", encoding="utf-8") as dep_file:
+    dep_file_dir = None
+    if GITHUB_REPO == "hsalsa20":
+        dep_file_dir = "./benchmarks/hsalsa20_dependencies_with_initialization_and_indirect_deps.json"
+    else:
+        dep_file_dir = "./benchmarks/bytestring_dependencies.json"
+    with open(dep_file_dir, "r", encoding="utf-8") as dep_file:
         dependencies = json.loads(dep_file.read())
     if exists(args.cache_file):
         with open(args.cache_file, "r", encoding="utf-8") as cache_file:
@@ -586,11 +600,10 @@ def run_tests(path, args):
         filename = key.split("--")[0].strip()
         func = key.split("--")[1].strip()
         if (filename, func) not in new_dependencies:
-            new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
-            total_num_of_funcs_per_file[filename] += 1
-            total_num_of_correct_funcs[filename] = 0
-            curr_num_of_funcs_tested[filename] = 0
-            # runs_upper_bound[(filename, func)] = 10 if len(new_dependencies[(filename, func)]) < 1 else 15
+            if GITHUB_REPO == "hsalsa20":
+                new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
+            else:
+                new_dependencies[(filename, func)] = [(l[1], l[0]) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
     dependencies = new_dependencies
     # NOTE: Clean-up in case we are missing some file-function pairs?
     for filename, func in dependencies:
@@ -601,7 +614,12 @@ def run_tests(path, args):
     code_llm = StarCoderModel()
 
     # Initialize Liquid Haskell project state with all the files and function dependencies
-    project_state = ProjectState(path, args.exec_dir, all_files, dependencies, args.max_preds)
+    project_state = ProjectState(args.exec_dir, all_files, dependencies, args.max_preds)
+
+    for filename, func in project_state.dependencies:
+        total_num_of_funcs_per_file[filename] += 1
+        total_num_of_correct_funcs[filename] = 0
+        curr_num_of_funcs_tested[filename] = 0
 
     total_num_of_progs = len(project_state.files)
     num_of_iterations = 0
@@ -866,4 +884,8 @@ def run_tests(path, args):
 
 if __name__ == "__main__":
     cmd_args = get_args()
-    run_tests("../hsalsa20/src", cmd_args)
+    if "hsalsa20" in cmd_args.exec_dir:
+        GITHUB_REPO = "hsalsa20"
+    else:
+        GITHUB_REPO = "bytestring"
+    run_tests(cmd_args)
