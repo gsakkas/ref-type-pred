@@ -14,6 +14,7 @@ import deepspeed
 
 import get_llm_code_suggestions as codex
 from get_starcoder_code_suggestions import StarCoderModel
+from get_codellama_code_suggestions import CodeLlamaModel
 
 TIMEOUT = 60 * 30
 
@@ -61,6 +62,12 @@ def llm_instruct_prompt_prediction(orig_prg, cmd_args, llm, cache_key=None, cach
                 prog_repairs = cache[key]
             elif "starcoder" in cmd_args.llm:
                 prog_repairs = llm.get_code_suggestions(prompt, cmd_args.total_repairs)
+            elif "codellama" in cmd_args.llm:
+                prompt = prompt.replace("<fim_prefix>", "<PRE> ")
+                prompt = prompt.replace("<fim_middle>", " <MID>")
+                prompt = prompt.replace("<fim_suffix>", " <SUF>")
+                prompt = "-- " + prompt
+                prog_repairs = llm.get_code_suggestions(prompt, cmd_args.total_repairs)
             else:
                 prog_repairs = codex.get_codex_code_suggestions_from_chat(prompt, 256, cmd_args.total_repairs)
             list_of_repaired_progs.extend(prog_repairs)
@@ -87,6 +94,8 @@ def get_predictions(cmd_args, llm, cache, tup):
 def run_llm_generation(cmd_args):
     if "starcoder" in cmd_args.llm:
         code_llm = StarCoderModel()
+    elif "codellama" in cmd_args.llm:
+        code_llm = CodeLlamaModel()
     else:
         code_llm = None
     done = 0
