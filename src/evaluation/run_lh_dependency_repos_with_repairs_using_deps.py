@@ -8,6 +8,7 @@ import re
 import subprocess as subp
 from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
+from predict.get_codellama_code_suggestions import CodeLlamaModel
 from evaluation.prog_diff import get_token_differences
 
 LIQUID_PRAGMAS = set(["predicate", "embed", "liquid", "LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
@@ -88,22 +89,32 @@ class LiquidFile():
             self.ground_truths[func] = clean_type(ground_truth)
             self.using_ground_truth[func] = False
             self.current_types[func] = None
+        file_prefix = name.replace(".hs", ".").replace("/", ".")
         if GITHUB_REPO == "hsalsa20":
             exports = code.split("    )\nwhere")[0].split('(')[-1].rstrip().rstrip(",")
         else:
-            exports = code.split("  ) where")[0].split('(')[-1].rstrip().rstrip(",")
-        file_prefix = name.replace(".hs", ".")
+            exports = re.findall(r"module\s*?" + file_prefix[:-1] + r"\s*\(([\s\S]*?)\)\s*?where", code)
+            if exports:
+                exports = exports[0]
+            else:
+                exports = "<<None>>"
         self.exports = set(exports.replace(",", " ").replace(file_prefix, "").strip().split())
         new_exports = exports[:]
+        new_exports = new_exports.rstrip().rstrip(",") + "\n"
+        eparts = new_exports.split(",")
+        if len(eparts) > 1 and eparts[-1].strip().startswith("--"):
+            new_exports = ",".join(eparts[:-1]) + eparts[-1]
         if self.name == "Rowround.hs":
-            new_exports += ", elts"
+            new_exports += ", elts\n"
         for func in self.current_types:
             if self.name == "Rowround.hs" and func in ["algMapsCompute", "algMapsDisplay", "algMapsKeelung"]:
                 continue
+            if self.name == "Data/ByteString/Internal/Pure.hs" and func in ["go1", "go2", "go3", "go4", "go5"]:
+                continue
             if func not in exports:
-                new_exports += f", {func}"
+                new_exports += f", {func}\n"
         # FIXME: we probably need the next line, here or in some other form
-        # self.code = self.code.replace(exports, new_exports)
+        self.code = self.code.replace(exports, new_exports)
         self.type_preds_cache = {func: [] for func in self.current_types} # To check locally,
         # how many predictions in this current state we've tested for this type (for backtracking)
         self.total_times_tested = {func: 0 for func in self.current_types} # To check globally,
@@ -147,13 +158,21 @@ class LiquidFile():
         FIM_PREFIX = "<fim_prefix>"
         FIM_MIDDLE = "<fim_middle>"
         FIM_SUFFIX = "<fim_suffix>"
+        # FIM_PREFIX = "<PRE> "
+        # FIM_MIDDLE = " <MID>"
+        # FIM_SUFFIX = " <SUF>"
 
         prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
+        # prefix = f"-- <filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
         llm_prog = self.code
         # FIXME: Hack to shorten prompt, because Crypt.hs is too long
         # TODO: Try to keep only dependencies or functions that have types
         parts = llm_prog.split('-}')
         llm_prog = '-}'.join(parts[1:]).strip()
+        if self.name == "Data/ByteString/Internal/Pure.hs":
+            llm_prog = "\n".join(llm_prog.split("\n")[:423])
+        if self.name == "Data/ByteString/Internal/Type.hs":
+            llm_prog = "\n".join(llm_prog.split("\n")[:274])
         pattern = re.escape(self.liquid_types[func]) # + r"\s*?\n"
         # Mask the type that we want to predict for
         llm_prog = re.sub(pattern, f"{{-@ {func} :: <fimask> @-}}", llm_prog, 1)
@@ -229,14 +248,20 @@ class ProjectState():
         self.seen_states = {}
         # Set function not present in the dependencies file to be the ground truth always
         # This way the user can provide some "easier" refinement types as examples
+        if GITHUB_REPO == "bytestring":
+            del self.files["Data/LiquidPtr.hs"]
+
         for key in list(self.dependencies.keys()):
             filename, func = key
+            if filename not in self.files:
+                del self.dependencies[key]
+                continue
             file_obj = self.files[filename]
             if func not in file_obj.liquid_types:
                 del self.dependencies[key]
 
         for key in list(self.dependencies.keys()):
-            self.dependencies[key] = [(filename, func) for filename, func in self.dependencies[key] if func in self.files[filename].liquid_types]
+            self.dependencies[key] = [(filename, func) for filename, func in self.dependencies[key] if filename in self.files and func in self.files[filename].liquid_types]
 
         # Delete functions that don't have refinement types
         for filename, file_obj in list(self.files.items()):
@@ -612,6 +637,7 @@ def run_tests(args):
 
     # Load (finetuned) code LLM
     code_llm = StarCoderModel()
+    # code_llm = CodeLlamaModel()
 
     # Initialize Liquid Haskell project state with all the files and function dependencies
     project_state = ProjectState(args.exec_dir, all_files, dependencies, args.max_preds)

@@ -160,7 +160,7 @@ for k in list(cache.keys()):
     all_progs += 1
     func = k.split("--")[-1]
     exercise = k.split("-")[0]
-    print(f"Solving {k.split('--')[0]} ({func})...")
+    print(f"Solving {k.split('--')[0]} ({func})...", flush=True)
     samples_per_difficulty[difficulties[k]] += 1
     samples_per_func[func] += 1
     samples_per_exer[exercise] += 1
@@ -189,7 +189,7 @@ for k in list(cache.keys()):
             # TODO: Just a random check, cause LH crashes for too long types
             if len(llm_repair) > len(ground_truth[0]) + 32:
                 if args.print_preds:
-                    print("UNSAFE")
+                    print("UNSAFE", flush=True)
                 continue
 
             llm_prog = fix_prog
