@@ -21,7 +21,7 @@ def get_args():
     parser.add_argument('--max_preds', default=50, type=int,
                         help='maximum number of predictions to generate with the model in total (default: 50)')
     parser.add_argument('--llm', default="starcoderbase-3b",
-                        help='llm to use for code generation {incoder-1B, -6B, codegen25-7B, starcoderbase-1b, -3b, -15b} (default: starcoderbase-3b)')
+                        help='llm to use for code generation {starcoderbase-1b, -3b, -15b, codellama-7b} (default: starcoderbase-3b)')
     parser.add_argument('--update_cache', action='store_true',
                         help='update the prompt cache (default: False)')
     parser.add_argument('--use_cache', action='store_true',
@@ -90,14 +90,11 @@ class LiquidFile():
             self.using_ground_truth[func] = False
             self.current_types[func] = None
         file_prefix = name.replace(".hs", ".").replace("/", ".")
-        if GITHUB_REPO == "hsalsa20":
-            exports = code.split("    )\nwhere")[0].split('(')[-1].rstrip().rstrip(",")
+        exports = re.findall(r"module\s*?" + file_prefix[:-1] + r"\s*\(([\s\S]*?)\)\s*?where", code)
+        if exports:
+            exports = exports[0]
         else:
-            exports = re.findall(r"module\s*?" + file_prefix[:-1] + r"\s*\(([\s\S]*?)\)\s*?where", code)
-            if exports:
-                exports = exports[0]
-            else:
-                exports = "<<None>>"
+            exports = "<<None>>"
         self.exports = set(exports.replace(",", " ").replace(file_prefix, "").strip().split())
         new_exports = exports[:]
         new_exports = new_exports.rstrip().rstrip(",") + "\n"
@@ -154,16 +151,19 @@ class LiquidFile():
     def is_exported(self, func):
         return func in self.exports
 
-    def make_prompt_for_func(self, func):
-        FIM_PREFIX = "<fim_prefix>"
-        FIM_MIDDLE = "<fim_middle>"
-        FIM_SUFFIX = "<fim_suffix>"
-        # FIM_PREFIX = "<PRE> "
-        # FIM_MIDDLE = " <MID>"
-        # FIM_SUFFIX = " <SUF>"
+    def make_prompt_for_func(self, func, llm):
+        FIM_PREFIX, FIM_MIDDLE, FIM_SUFFIX, prefix = None, None, None, None
+        if "starcoder" in llm:
+            FIM_PREFIX = "<fim_prefix>"
+            FIM_MIDDLE = "<fim_middle>"
+            FIM_SUFFIX = "<fim_suffix>"
+            prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
+        elif "codellama" in llm:
+            FIM_PREFIX = "<PRE> "
+            FIM_MIDDLE = " <MID>"
+            FIM_SUFFIX = " <SUF>"
+            prefix = f"-- <filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
 
-        prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
-        # prefix = f"-- <filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
         llm_prog = self.code
         # FIXME: Hack to shorten prompt, because Crypt.hs is too long
         # TODO: Try to keep only dependencies or functions that have types
@@ -636,8 +636,10 @@ def run_tests(args):
         dependencies[(filename, func)] = [t for t in deps if t in deps]
 
     # Load (finetuned) code LLM
-    code_llm = StarCoderModel()
-    # code_llm = CodeLlamaModel()
+    if "starcoder" in args.llm:
+        code_llm = StarCoderModel()
+    elif "codellama" in args.llm:
+        code_llm = CodeLlamaModel()
 
     # Initialize Liquid Haskell project state with all the files and function dependencies
     project_state = ProjectState(args.exec_dir, all_files, dependencies, args.max_preds)
@@ -715,7 +717,7 @@ def run_tests(args):
         solved = False
         if not project_state.is_using_ground_truth() and project_state.state_llm_calls_less_than_max() and \
                 (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()) :
-            prompt = file_obj.make_prompt_for_func(func)
+            prompt = file_obj.make_prompt_for_func(func, args.llm)
             # Prompt key includes all predicted types so far, the current file and function and how many times we called with this prompt
             prompt_key = filename + "--" + func + "<-->" + project_state.get_type_state_key() + "<-->" + str(file_obj.num_of_llm_calls[func] // args.total_preds)
             if prompt_key not in prompt_cache:
