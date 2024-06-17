@@ -118,6 +118,54 @@ class LiquidFile():
         # how many predictions we've tested for this type (for stopping backtracking and using ground truth)
         self.num_of_llm_calls = {func: 0 for func in self.current_types}
         self.tested_types_num = {func: 0 for func in self.current_types}
+        self.func_predicates = {func: [] for func in self.current_types}
+        self.seen_predicates = set()
+
+    def get_func_qualifiers(self, func):
+        return self.func_predicates[func]
+
+    def update_func_qualifiers(self, func):
+        qualifier_pattern = r"\{([^\|\{\}]+?\s*?:\s*?[^\|\{\}]+?)\|([\s\S]+?)\}"
+        idx = len(self.func_predicates[func])
+        for t_pred in self.type_preds_cache[func]:
+            clean_predicates = []
+            for inputs, predicates in re.findall(qualifier_pattern, t_pred):
+                i = re.sub(r":\s*?\[.+?\]", ": [_]", inputs)
+                if "[_]" not in i:
+                    i = re.sub(r":.+", ": a", i)
+                if "&&" in predicates:
+                    temp = predicates.strip().replace(' = ', ' == ')
+                    if temp.count('(') == temp.count(')') > 2:
+                        temp = temp.strip('(').strip(')')
+                    split_predicates = temp.split("&&")
+                    for p in split_predicates:
+                        clean_predicates.append((i.strip(), p.strip()))
+                else:
+                    clean_predicates.append((i.strip(), predicates.strip().replace(' = ', ' == ')))
+
+            clean_inputs = [i for i, _ in clean_predicates]
+            for qual in t_pred.split('->'):
+                if ':' in qual and "|" not in qual:
+                    clean_qual = qual.strip().strip('(').strip(')').strip()
+                    if "[_]" not in clean_qual:
+                        clean_qual = re.sub(r":.+", ": a", clean_qual)
+                    clean_inputs.append(re.sub(r"\[.+?\]", "[_]", clean_qual))
+
+            for i, p in clean_predicates:
+                var_names = ["w", "z", "y", "x"]
+                all_vars = [i]
+                var_i = i.split(":")[0].strip()
+                key = f"({i}): {p}".replace(var_i, var_names.pop())
+                words = re.findall(r"[_a-z]\w*", p)
+                for inp in clean_inputs:
+                    var_inp = inp.split(":")[0].strip()
+                    if inp != i and var_inp in words:
+                        key.replace("):", inp + "):").replace(var_i, var_names.pop())
+                        all_vars.append(inp)
+                if key not in self.seen_predicates:
+                    self.seen_predicates.add(key)
+                    self.func_predicates[func].append(f"{{-@ qualif {func.capitalize()}_{idx}({', '.join(all_vars)}): {p} @-}}")
+                    idx += 1
 
     def update_types_in_file(self):
         llm_prog = self.code
@@ -759,6 +807,11 @@ def run_tests(args):
         #     # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
         #     print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
         #     project_state.set_file_func_to_ground()
+
+            file_obj.update_func_qualifiers(func)
+
+        for q in file_obj.get_func_qualifiers(func):
+            print(q)
 
         if project_state.is_using_ground_truth():
             print("-" * 42)
