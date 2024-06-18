@@ -95,8 +95,9 @@ class LiquidFile():
             exports = exports[0]
         else:
             exports = "<<None>>"
-        self.exports = set(exports.replace(",", " ").replace(file_prefix, "").strip().split())
-        new_exports = exports[:]
+        self.orig_exports = exports
+        self.exports = set(self.orig_exports.replace(",", " ").replace(file_prefix, "").strip().split())
+        new_exports = self.orig_exports[:]
         new_exports = new_exports.rstrip().rstrip(",") + "\n"
         eparts = new_exports.split(",")
         if len(eparts) > 1 and eparts[-1].strip().startswith("--"):
@@ -108,10 +109,10 @@ class LiquidFile():
                 continue
             if self.name == "Data/ByteString/Internal/Pure.hs" and func in ["go1", "go2", "go3", "go4", "go5"]:
                 continue
-            if func not in exports:
+            if func not in self.exports:
                 new_exports += f", {func}\n"
         # FIXME: we probably need the next line, here or in some other form
-        self.code = self.code.replace(exports, new_exports)
+        # self.code = self.code.replace(exports, new_exports)
         self.type_preds_cache = {func: [] for func in self.current_types} # To check locally,
         # how many predictions in this current state we've tested for this type (for backtracking)
         self.total_times_tested = {func: 0 for func in self.current_types} # To check globally,
@@ -130,15 +131,20 @@ class LiquidFile():
         for t_pred in self.type_preds_cache[func]:
             clean_predicates = []
             for inputs, predicates in re.findall(qualifier_pattern, t_pred):
-                i = re.sub(r":\s*?\[.+?\]", ": [_]", inputs)
-                if "[_]" not in i:
-                    i = re.sub(r":.+", ": a", i)
+                # i = re.sub(r":\s*?\[.+?\]", ": [_]", inputs)
+                # if "[_]" not in i:
+                i = re.sub(r":.+", ": a", inputs)
                 if "&&" in predicates:
                     temp = predicates.strip().replace(' = ', ' == ')
-                    if temp.count('(') == temp.count(')') > 2:
-                        temp = temp.strip('(').strip(')')
                     split_predicates = temp.split("&&")
                     for p in split_predicates:
+                        temp = p.strip()
+                        if p.count('(') == p.count(')') and p.count("(") % 2 == 1:
+                            temp = temp.strip('(').strip(')')
+                        elif p.count('(') > p.count(')'):
+                            temp = temp.strip('(')
+                        elif p.count('(') < p.count(')'):
+                            temp = temp.strip(')')
                         clean_predicates.append((i.strip(), p.strip()))
                 else:
                     clean_predicates.append((i.strip(), predicates.strip().replace(' = ', ' == ')))
@@ -147,9 +153,10 @@ class LiquidFile():
             for qual in t_pred.split('->'):
                 if ':' in qual and "|" not in qual:
                     clean_qual = qual.strip().strip('(').strip(')').strip()
-                    if "[_]" not in clean_qual:
-                        clean_qual = re.sub(r":.+", ": a", clean_qual)
-                    clean_inputs.append(re.sub(r"\[.+?\]", "[_]", clean_qual))
+                    # if "[_]" not in clean_qual:
+                    clean_qual = re.sub(r":.+", ": a", clean_qual)
+                    # clean_inputs.append(re.sub(r"\[.+?\]", "[_]", clean_qual))
+                    clean_inputs.append(clean_qual)
 
             for i, p in clean_predicates:
                 var_names = ["w", "z", "y", "x"]
@@ -169,6 +176,7 @@ class LiquidFile():
 
     def update_types_in_file(self):
         llm_prog = self.code
+        qualifiers = []
         for func, ltype in self.current_types.items():
             pattern = re.escape(self.liquid_types[func]) # + r"\s*?\n"
             if ltype:
@@ -178,9 +186,14 @@ class LiquidFile():
                 if "\\" in ltype:
                     ltype = ltype.replace("\\", "\\\\")
                 llm_prog = re.sub(pattern, f"{{-@ {func} :: {ltype} @-}}", llm_prog, 1)
+                qualifiers.extend(self.func_predicates[func])
             else:
                 # Ignore the function
                 llm_prog = re.sub(pattern, f"{{-@ ignore {func} @-}}", llm_prog, 1)
+        exports_idx = llm_prog.find(self.orig_exports)
+        where_end_idx = llm_prog.find("where", exports_idx) + len("where")
+        prefix = llm_prog[:where_end_idx]
+        llm_prog = llm_prog.replace(prefix, prefix + "\n\n" + "\n".join(qualifiers) + "\n")
         return llm_prog
 
     def set_func_type(self, func, ltype):
@@ -508,6 +521,29 @@ class ProjectState():
         # cmds += f"git restore src"
         test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
         result = test_output.stderr.decode('utf-8').strip()
+        while "Cannot parse specification:" in result and "{-@ qualif" in result:
+            print("Problem with parsing qualifiers! Deleting:")
+            qualif_error_locations = [rline.split(".hs")[0] + ".hs" for rline in result.split("\n") if "error:" in rline]
+            qualifs_with_errors = ["{-@ qualif" + rline.split("{-@ qualif")[1].split("@-}")[0] + "@-}" for rline in result.split("\n") if "{-@ qualif" in rline]
+            qualif_errors = list(zip(qualif_error_locations, qualifs_with_errors))
+            print("\n".join([f"{eloc}:\n{q}" for eloc, q in qualif_errors]))
+            for filename, file_obj in self.files.items():
+                new_code = self.curr_file_code[filename][:]
+                for eloc, q in qualif_errors:
+                    if filename in eloc:
+                        new_code = new_code.replace(q + "\n", "")
+                        all_predicates = self.files[filename].func_predicates
+                        for func in all_predicates:
+                            if func.capitalize() in q and q in all_predicates[func]:
+                                all_predicates[func].remove(q)
+
+                if self.curr_file_code[filename] != new_code:
+                    self.curr_file_code[filename] = new_code
+                    with open(join(self.src_path, filename), "w", encoding="utf-8") as prog:
+                        prog.write(new_code)
+            print("Deleted problematic qualifiers; Retrying verification...")
+            test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
+            result = test_output.stderr.decode('utf-8').strip()
         # print("<<" * 42)
         # if GITHUB_REPO == "hsalsa20":
         #     print("/home/gsakkas/hsalsa20".join(result.split("/home/gsakkas/hsalsa20")[1:]))
@@ -774,16 +810,16 @@ def run_tests(args):
                     cache_file.write(json.dumps(prompt_cache, indent=4))
             type_preds = list(map(lambda p: p[1], sorted(prompt_cache[prompt_key], key=lambda p: p[0])))
             print(f"Got from cache or LLM {len(type_preds)} type predictions...")
-            # if file_obj.is_exported(func):
-            #     type_preds = [tpred for tpred in type_preds if tpred.split("->")[-1].strip() not in ["_", "[_]"]]
-            #     print(f"Kept only {len(type_preds)} type predictions for exported function...")
-            # else:
-            #     parts = len(file_obj.ground_truths[func].split("->"))
-            #     naive_type = " -> ".join(["_"] * parts)
-            #     print(f"Added {naive_type} to type predictions for local function...")
-            #     if naive_type in type_preds:
-            #         type_preds.remove(naive_type)
-            #     type_preds.append(naive_type)
+            if file_obj.is_exported(func):
+                type_preds = [tpred for tpred in type_preds if tpred.split("->")[-1].strip() not in ["_", "[_]"]]
+                print(f"Kept only {len(type_preds)} type predictions for exported function...")
+            else:
+                parts = len(file_obj.ground_truths[func].split("->"))
+                naive_type = " -> ".join(["_"] * parts)
+                print(f"Added {naive_type} to type predictions for local function...")
+                if naive_type in type_preds:
+                    type_preds.remove(naive_type)
+                type_preds.append(naive_type)
             total_llm_calls += 1
             num_of_preds = file_obj.num_of_llm_calls[func] + args.total_preds
             prev_len = len(file_obj.type_preds_cache[func])
