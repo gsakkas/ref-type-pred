@@ -1,0 +1,3506 @@
+{
+    "Data/ByteString/Builder/Prim/Internal.hs--(>$<)": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--(>*<)": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--fixedPrim": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--size": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--runF": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--emptyF": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--pairF": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal.hs--contramapF": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--toB": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal.hs--liftFixedToBounded": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--storableToF": [
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal.hs--liftIOF": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--sizeBound": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--boundedPrim": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--runB": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--contramapB": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--emptyB": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--pairB": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--eitherB": [],
+    "Data/ByteString/Builder/Prim/Internal.hs--condB": [
+        [
+            "contramapB",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "eitherB",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/Base16.hs--lowerTable": [
+        [
+            "c_lower_hex_table",
+            "Data/ByteString/Builder/Prim/Internal/Base16.hs"
+        ],
+        [
+            "lower_hex_table",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/Base16.hs--c_lower_hex_table": [],
+    "Data/ByteString/Builder/Prim/Internal/Base16.hs--encode8_as_16h": [
+        [
+            "peekElemOff",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/Floating.hs--encodeFloatViaWord32F": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "runF",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/Floating.hs--encodeDoubleViaWord64F": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "runF",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs--shiftr_w16": [
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs--shiftr_w32": [
+        [
+            "shiftr_w64",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs--shiftr_w64": [
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "shiftr_w",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs--shiftr_w": [
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "shiftr_w64",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs--caseWordSize_32_64": [
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word8": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--word16BE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w16",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word16Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word16LE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w16",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word16Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word32BE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word32Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word32LE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word32Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word64BE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "shiftr_w64",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word64Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--word64LE": [
+        [
+            "fixedPrim",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "shiftr_w32",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "shiftr_w64",
+            "Data/ByteString/Builder/Prim/Internal/UncheckedShifts.hs"
+        ],
+        [
+            "word64Host",
+            "Data/ByteString/Builder/Prim/Binary.hs"
+        ],
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--wordHost": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--word16Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--word32Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--word64Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int8": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int16BE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int16LE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int32BE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int32LE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int64BE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int64LE": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--intHost": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int16Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int32Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--int64Host": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--floatBE": [
+        [
+            "encodeFloatViaWord32F",
+            "Data/ByteString/Builder/Prim/Internal/Floating.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--floatLE": [
+        [
+            "encodeFloatViaWord32F",
+            "Data/ByteString/Builder/Prim/Internal/Floating.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--doubleBE": [
+        [
+            "encodeDoubleViaWord64F",
+            "Data/ByteString/Builder/Prim/Internal/Floating.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--doubleLE": [
+        [
+            "encodeDoubleViaWord64F",
+            "Data/ByteString/Builder/Prim/Internal/Floating.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/Prim/Binary.hs--floatHost": [],
+    "Data/ByteString/Builder/Prim/Binary.hs--doubleHost": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--float_pow5_inv_bitcount": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--float_pow5_bitcount": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--double_pow5_bitcount": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--double_pow5_inv_bitcount": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--blen": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--finv": [
+        [
+            "blen",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--fnorm": [
+        [
+            "blen",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--splitWord128s": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--splitWord128": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--case64": [
+        [
+            "concat",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "concat",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "concat",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--case128": [
+        [
+            "splitWord128",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ],
+        [
+            "concat",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "concat",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "concat",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--get_range": [],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--float_max_split": [
+        [
+            "get_range",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ],
+        [
+            "float_max_inv_split",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--float_max_inv_split": [
+        [
+            "get_range",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ],
+        [
+            "float_max_split",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--double_max_split": [
+        [
+            "get_range",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ],
+        [
+            "double_max_inv_split",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Builder/RealFloat/TableGenerator.hs--double_max_inv_split": [
+        [
+            "get_range",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ],
+        [
+            "double_max_split",
+            "Data/ByteString/Builder/RealFloat/TableGenerator.hs"
+        ]
+    ],
+    "Data/ByteString/Utils/ByteOrder.hs--hostByteOrder": [],
+    "Data/ByteString/Utils/ByteOrder.hs--whenLittleEndian": [
+        [
+            "hostByteOrder",
+            "Data/ByteString/Utils/ByteOrder.hs"
+        ]
+    ],
+    "Data/ByteString/Utils/ByteOrder.hs--whenBigEndian": [
+        [
+            "hostByteOrder",
+            "Data/ByteString/Utils/ByteOrder.hs"
+        ]
+    ],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedWriteU16": [],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedWriteU32": [],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedWriteU64": [],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedWriteFloat": [],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedWriteDouble": [],
+    "Data/ByteString/Utils/UnalignedAccess.hs--unalignedReadU64": [],
+    "Data/LiquidPtr.hs--fst3": [],
+    "Data/LiquidPtr.hs--snd3": [],
+    "Data/LiquidPtr.hs--myMin": [],
+    "Data/LiquidPtr.hs--myMax": [],
+    "Data/LiquidPtr.hs--newForeignPtr_": [],
+    "Data/LiquidPtr.hs--withForeignPtr": [],
+    "Data/LiquidPtr.hs--peekByteOff": [],
+    "Data/LiquidPtr.hs--peekElemOff": [],
+    "Data/LiquidPtr.hs--pokeByteOff": [],
+    "Data/LiquidPtr.hs--pokeElemOff": [],
+    "Data/LiquidPtr.hs--peek": [],
+    "Data/LiquidPtr.hs--poke": [],
+    "Data/LiquidPtr.hs--nullPtr": [],
+    "Data/LiquidPtr.hs--castPtr": [],
+    "Data/LiquidPtr.hs--plusPtr": [],
+    "Data/LiquidPtr.hs--minusPtr": [],
+    "Data/LiquidPtr.hs--mkPtr": [],
+    "Data/LiquidPtr.hs--plusForeignPtr": [],
+    "Data/LiquidPtr.hs--allocaBytes": [],
+    "Data/LiquidPtr.hs--unsafeForeignPtrToPtr": [],
+    "Data/LiquidPtr.hs--unsafeError": [],
+    "Data/ByteString/Internal/Pure.hs--strlen": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--go1": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--memchr": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "nullPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--memcmp": [
+        [
+            "whenLittleEndian",
+            "Data/ByteString/Utils/ByteOrder.hs"
+        ],
+        [
+            "unalignedReadU64",
+            "Data/ByteString/Utils/UnalignedAccess.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "memcmp1",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--memcmp1": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--intersperse": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "last",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--countOccBA": [
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "go5",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--go5": [],
+    "Data/ByteString/Internal/Pure.hs--countOcc": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--elemIndex": [
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--reverseBytes": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "reverse_bytes",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--reverse_bytes": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--findMaximum": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "find_maximum",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--find_maximum": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--findMinimum": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "find_minimum",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--find_minimum": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--quickSort": [
+        [
+            "quick_sort",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--quick_sort": [
+        [
+            "partition",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "partition",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--partition": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "index",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "all",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--isValidUtf8BA": [
+        [
+            "isValidUtf8'",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--isValidUtf8": [
+        [
+            "isValidUtf8'",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--isValidUtf8'": [],
+    "Data/ByteString/Internal/Pure.hs--go2": [],
+    "Data/ByteString/Internal/Pure.hs--getDigit": [],
+    "Data/ByteString/Internal/Pure.hs--putDigit": [
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "getDigit",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--reverseBytesInplace": [
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeSignedDec": [
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "putDigit",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "encodeUnsignedDec",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "encodeUnsignedDec'",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeUnsignedDec": [
+        [
+            "encodeUnsignedDec'",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeUnsignedDec'": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "putDigit",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "reverseBytesInplace",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "reverse",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeUnsignedDecPadded": [
+        [
+            "putDigit",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeUnsignedHex": [
+        [
+            "encodeUnsignedHex'",
+            "Data/ByteString/Internal/Pure.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--encodeUnsignedHex'": [
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "putDigit",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "reverseBytesInplace",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "reverse",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Pure.hs--lower_hex_table": [],
+    "Data/ByteString/Internal/Pure.hs--digit_pairs_table": [],
+    "Data/ByteString/Internal/Type.hs--unsafeWithForeignPtr": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--plusForeignPtr": [],
+    "Data/ByteString/Internal/Type.hs--minusForeignPtr": [],
+    "Data/ByteString/Internal/Type.hs--peekFp": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--pokeFp": [
+        [
+            "poke",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--peekFpByteOff": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--pokeFpByteOff": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--deferForeignPtrAvailability": [],
+    "Data/ByteString/Internal/Type.hs--mkDeferredByteString": [
+        [
+            "deferForeignPtrAvailability",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeDupablePerformIO": [],
+    "Data/ByteString/Internal/Type.hs--packConstr": [
+        [
+            "byteStringDataType",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pack",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "byteStringDataType",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--byteStringDataType": [
+        [
+            "packConstr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "packConstr",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--findIndexOrLength": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "peekFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--packBytes": [
+        [
+            "unsafePackLenBytes",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--packChars": [
+        [
+            "unsafePackLenChars",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackLenBytes": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pokeFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackLenChars": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pokeFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c2w",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackAddress": [
+        [
+            "unsafePackLenAddress",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c_strlen",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackLenAddress": [
+        [
+            "newForeignPtr_",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackLiteral": [
+        [
+            "unsafePackLenLiteral",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c_strlen",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafePackLenLiteral": [
+        [
+            "newForeignPtr_",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeDupablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--packUptoLenBytes": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "minusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pokeFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFpUptoN'",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--packUptoLenChars": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "minusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pokeFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFpUptoN'",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c2w",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackBytes": [
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackChars": [
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackAppendBytesLazy": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendBytesStrict",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendBytesStrict",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackAppendCharsLazy": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendCharsStrict",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendCharsStrict",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackAppendBytesStrict": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unpackAppendCharsStrict": [
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "w2c",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--nullForeignPtr": [],
+    "Data/ByteString/Internal/Type.hs--fromForeignPtr": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--fromForeignPtr0": [],
+    "Data/ByteString/Internal/Type.hs--toForeignPtr": [],
+    "Data/ByteString/Internal/Type.hs--toForeignPtr0": [],
+    "Data/ByteString/Internal/Type.hs--unsafeCreateFp": [
+        [
+            "unsafeDupablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "createFp",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeCreateFpUptoN": [
+        [
+            "unsafeDupablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "createFpUptoN",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeCreateFpUptoN'": [
+        [
+            "unsafeDupablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "createFpUptoN'",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createFp": [
+        [
+            "mkDeferredByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mallocByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createFpUptoN": [
+        [
+            "mkDeferredByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mallocByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createFpUptoN'": [
+        [
+            "mkDeferredByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mallocByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createFpAndTrim": [
+        [
+            "mkDeferredByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "createFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mallocByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcpyFp",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createFpAndTrim'": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mkDeferredByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "createFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "mallocByteString",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcpyFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--wrapAction": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeCreate": [
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeCreateUptoN": [
+        [
+            "unsafeCreateFpUptoN",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--unsafeCreateUptoN'": [
+        [
+            "unsafeCreateFpUptoN'",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--create": [
+        [
+            "createFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createUptoN": [
+        [
+            "createFpUptoN",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createUptoN'": [
+        [
+            "createFpUptoN'",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createAndTrim": [
+        [
+            "createFpAndTrim",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--createAndTrim'": [
+        [
+            "createFpAndTrim'",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "wrapAction",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--mallocByteString": [],
+    "Data/ByteString/Internal/Type.hs--eq": [
+        [
+            "compareBytes",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "compareBytes",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--compareBytes": [
+        [
+            "memcmp",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcmp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--empty": [
+        [
+            "nullForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "any",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--append": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedAdd",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcpyFp",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--concat": [
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "all",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--stimesPolymorphic": [
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "stimesNegativeErr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "stimesOverflowErr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "stimesNonNegativeInt",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedIntegerToInt",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--stimesNegativeErr": [],
+    "Data/ByteString/Internal/Type.hs--stimesOverflowErr": [
+        [
+            "overflowError",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--stimesNonNegativeInt": [
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ],
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "peekFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedMultiply",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcpyFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--w2c": [],
+    "Data/ByteString/Internal/Type.hs--c2w": [],
+    "Data/ByteString/Internal/Type.hs--isSpaceWord8": [
+        [
+            "filter",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--isSpaceChar8": [
+        [
+            "c2w",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "isSpaceWord8",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--overflowError": [
+        [
+            "size",
+            "Data/ByteString/Builder/Prim/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--checkedAdd": [
+        [
+            "overflowError",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--checkedMultiply": [
+        [
+            "overflowError",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--checkedIntegerToInt": [],
+    "Data/ByteString/Internal/Type.hs--accursedUnutterablePerformIO": [],
+    "Data/ByteString/Internal/Type.hs--memchr": [
+        [
+            "memset",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--memcmp": [
+        [
+            "memset",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--memset": [],
+    "Data/ByteString/Internal/Type.hs--c_strlen": [
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "strlen",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "checkedCast",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--memcpyFp": [
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Internal/Type.hs--c_free_finalizer": [],
+    "Data/ByteString/Internal/Type.hs--c_reverse": [],
+    "Data/ByteString/Internal/Type.hs--c_intersperse": [],
+    "Data/ByteString/Internal/Type.hs--c_maximum": [],
+    "Data/ByteString/Internal/Type.hs--c_minimum": [],
+    "Data/ByteString/Internal/Type.hs--c_count": [],
+    "Data/ByteString/Internal/Type.hs--c_count_ba": [],
+    "Data/ByteString/Internal/Type.hs--c_sort": [],
+    "Data/ByteString/Internal/Type.hs--c_elem_index": [],
+    "Data/ByteString/Internal/Type.hs--c_uint_dec": [],
+    "Data/ByteString/Internal/Type.hs--c_long_long_uint_dec": [],
+    "Data/ByteString/Internal/Type.hs--c_int_dec": [],
+    "Data/ByteString/Internal/Type.hs--c_long_long_int_dec": [],
+    "Data/ByteString/Internal/Type.hs--c_uint_hex": [],
+    "Data/ByteString/Internal/Type.hs--c_long_long_uint_hex": [],
+    "Data/ByteString/Internal/Type.hs--c_int_dec_padded9": [],
+    "Data/ByteString/Internal/Type.hs--c_long_long_int_dec_padded18": [],
+    "Data/ByteString/Internal/Type.hs--cIsValidUtf8": [],
+    "Data/ByteString/Internal/Type.hs--cIsValidUtf8BA": [],
+    "Data/ByteString/Internal/Type.hs--cIsValidUtf8BASafe": [],
+    "Data/ByteString/Internal/Type.hs--cIsValidUtf8Safe": [],
+    "Data/ByteString/Internal/Type.hs--bool_to_cint": [],
+    "Data/ByteString/Internal/Type.hs--checkedCast": [],
+    "Data/ByteString/Short/Internal.hs--empty": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--length": [
+        [
+            "unSBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--null": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--index": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexError",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Unsafe.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--indexMaybe": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Unsafe.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--(!?)": [],
+    "Data/ByteString/Short/Internal.hs--unsafeIndex": [
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--indexError": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "index",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "moduleError",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--asBA": [],
+    "Data/ByteString/Short/Internal.hs--unSBS": [],
+    "Data/ByteString/Short/Internal.hs--create": [
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--createAndTrim": [
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyMutableByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--createAndTrim'": [
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyMutableByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--createAndTrim2": [
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyMutableByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--isPinned": [],
+    "Data/ByteString/Short/Internal.hs--toShort": [
+        [
+            "unsafeDupablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "toShortIO",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--toShortIO": [
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyAddrToByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--fromShort": [
+        [
+            "unsafeWithForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unsafeCreateFp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unSBS",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "isPinned",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyToPtr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--singleton": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--pack": [],
+    "Data/ByteString/Short/Internal.hs--unpack": [
+        [
+            "unpackFoldr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackFoldr": [
+        [
+            "foldr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packChars": [
+        [
+            "c2w",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "packLenBytes",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "map",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packBytes": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "packLenBytes",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packLenBytes": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackChars": [
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackBytes": [
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackAppendCharsLazy": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackAppendBytesLazy": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackAppendCharsStrict": [
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexCharArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unpackAppendBytesStrict": [
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--compareBytes": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "compareByteArrays",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--append": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedAdd",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--concat": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedAdd",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--snoc": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedAdd",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--cons": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "checkedAdd",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--last": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "errorEmptySBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--tail": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "errorEmptySBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--uncons": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--head": [
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "errorEmptySBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--init": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "errorEmptySBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unsnoc": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--map": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--reverse": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--intercalate": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "foldl'",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "chunk",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--foldl": [],
+    "Data/ByteString/Short/Internal.hs--foldl'": [],
+    "Data/ByteString/Short/Internal.hs--foldr": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--foldr'": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--foldl1": [],
+    "Data/ByteString/Short/Internal.hs--foldl1'": [],
+    "Data/ByteString/Short/Internal.hs--foldr1": [],
+    "Data/ByteString/Short/Internal.hs--foldr1'": [
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "last",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "init",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "foldr'",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "errorEmptySBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--all": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--any": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--take": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--takeWhile": [
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "take",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--takeEnd": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--takeWhileEnd": [
+        [
+            "drop",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findFromEndUntil",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--drop": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--dropEnd": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--dropWhile": [
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "drop",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--dropWhileEnd": [
+        [
+            "take",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findFromEndUntil",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--breakEnd": [
+        [
+            "splitAt",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findFromEndUntil",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--break": [
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "take",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "drop",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findIndexOrLength",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--span": [
+        [
+            "break",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--spanEnd": [
+        [
+            "splitAt",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findFromEndUntil",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--splitAt": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--split": [
+        [
+            "splitWith",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--splitWith": [
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "tail",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "break",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--stripSuffix": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "isSuffixOf",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--stripPrefix": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "isPrefixOf",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--replicate": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "setByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unfoldr": [
+        [
+            "packBytesRev",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--unfoldrN": [
+        [
+            "createAndTrim",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "createAndTrim",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--isInfixOf": [
+        [
+            "null",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "breakSubstring",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--isPrefixOf": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "compareByteArraysOff",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--isSuffixOf": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "compareByteArraysOff",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--breakSubstring": [
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "tail",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "head",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "foldl'",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "take",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "splitAt",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "breakByte",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeIndex",
+            "Data/ByteString/Unsafe.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--elem": [
+        [
+            "elemIndex",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "elemIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--filter": [
+        [
+            "createAndTrim'",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "createAndTrim'",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--find": [
+        [
+            "index",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "findIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--partition": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "createAndTrim2",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--elemIndex": [
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c_elem_index",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unSBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--elemIndices": [
+        [
+            "findIndices",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--count": [
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c_count_ba",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unSBS",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--findIndex": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--findIndices": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--copyToPtr": [
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyByteArrayToAddr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--createFromPtr": [
+        [
+            "newByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unsafeFreezeByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyAddrToByteArray",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--indexCharArray": [],
+    "Data/ByteString/Short/Internal.hs--indexWord8Array": [],
+    "Data/ByteString/Short/Internal.hs--indexWord8ArrayAsWord64": [],
+    "Data/ByteString/Short/Internal.hs--newByteArray": [],
+    "Data/ByteString/Short/Internal.hs--unsafeFreezeByteArray": [],
+    "Data/ByteString/Short/Internal.hs--writeWord8Array": [],
+    "Data/ByteString/Short/Internal.hs--writeWord64Array": [],
+    "Data/ByteString/Short/Internal.hs--copyAddrToByteArray": [
+        [
+            "copyAddrToByteArray#",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--copyByteArrayToAddr": [
+        [
+            "copyByteArrayToAddr#",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--copyByteArray": [
+        [
+            "copyByteArray#",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--setByteArray": [],
+    "Data/ByteString/Short/Internal.hs--copyMutableByteArray": [],
+    "Data/ByteString/Short/Internal.hs--compareByteArrays": [
+        [
+            "compareByteArraysOff",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--compareByteArraysOff": [
+        [
+            "memcmp",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "memcmp",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "compareByteArrays",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--copyAddrToByteArray#": [],
+    "Data/ByteString/Short/Internal.hs--copyByteArrayToAddr#": [],
+    "Data/ByteString/Short/Internal.hs--copyByteArray#": [],
+    "Data/ByteString/Short/Internal.hs--packCString": [
+        [
+            "c_strlen",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "packCStringLen",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packCStringLen": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "createFromPtr",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "moduleErrorIO",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--useAsCString": [
+        [
+            "pokeByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "allocaBytes",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyToPtr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--useAsCStringLen": [
+        [
+            "allocaBytes",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "copyToPtr",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--isValidUtf8": [
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "cIsValidUtf8BA",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "cIsValidUtf8BASafe",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "unSBS",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "isPinned",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--moduleErrorIO": [
+        [
+            "moduleErrorMsg",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--moduleErrorMsg": [],
+    "Data/ByteString/Short/Internal.hs--findFromEndUntil": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--findIndexOrLength": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "asBA",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "indexWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packBytesRev": [
+        [
+            "length",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "packLenBytesRev",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--packLenBytesRev": [
+        [
+            "create",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "create",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "writeWord8Array",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--breakByte": [
+        [
+            "elemIndex",
+            "Data/ByteString/Internal/Pure.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "take",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "drop",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "elemIndex",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--errorEmptySBS": [
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "moduleError",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Short/Internal.hs--moduleError": [
+        [
+            "moduleErrorMsg",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--packConstr": [
+        [
+            "byteStringDataType",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "pack",
+            "Data/ByteString/Short/Internal.hs"
+        ],
+        [
+            "byteStringDataType",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--byteStringDataType": [
+        [
+            "packConstr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "packConstr",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--packBytes": [
+        [
+            "packUptoLenBytes",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "chunk",
+            "Data/ByteString/Lazy/Internal.hs"
+        ],
+        [
+            "smallChunkSize",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--packChars": [
+        [
+            "packUptoLenChars",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "chunk",
+            "Data/ByteString/Lazy/Internal.hs"
+        ],
+        [
+            "smallChunkSize",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--unpackBytes": [
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendBytesLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--unpackChars": [
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "unpackAppendCharsLazy",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--invariant": [],
+    "Data/ByteString/Lazy/Internal.hs--checkInvariant": [
+        [
+            "invariant",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--chunk": [],
+    "Data/ByteString/Lazy/Internal.hs--foldrChunks": [],
+    "Data/ByteString/Lazy/Internal.hs--foldlChunks": [],
+    "Data/ByteString/Lazy/Internal.hs--defaultChunkSize": [
+        [
+            "chunkOverhead",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--smallChunkSize": [
+        [
+            "chunkOverhead",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--chunkOverhead": [],
+    "Data/ByteString/Lazy/Internal.hs--eq": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--cmp": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--append": [
+        [
+            "foldrChunks",
+            "Data/ByteString/Lazy/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Lazy/Internal.hs--concat": [],
+    "Data/ByteString/Lazy/Internal.hs--times": [],
+    "Data/ByteString/Lazy/Internal.hs--fromStrict": [],
+    "Data/ByteString/Lazy/Internal.hs--toStrict": [
+        [
+            "nullForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "empty",
+            "Data/ByteString/Short/Internal.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--bsLen": [],
+    "Data/ByteString/Unsafe.hs--bsPointer": [],
+    "Data/ByteString/Unsafe.hs--unsafeHead": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "peek",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeTail": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeInit": [],
+    "Data/ByteString/Unsafe.hs--unsafeLast": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeIndex": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "peekByteOff",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "accursedUnutterablePerformIO",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeTake": [],
+    "Data/ByteString/Unsafe.hs--unsafeDrop": [
+        [
+            "plusForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "plusForeignPtr",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafePackAddressLen": [
+        [
+            "newForeignPtr_",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "mkPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafePackCStringFinalizer": [],
+    "Data/ByteString/Unsafe.hs--unsafeFinalize": [],
+    "Data/ByteString/Unsafe.hs--unsafePackCString": [
+        [
+            "newForeignPtr_",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "c_strlen",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafePackCStringLen": [
+        [
+            "newForeignPtr_",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafePackMallocCString": [
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "c_strlen",
+            "Data/ByteString/Internal/Type.hs"
+        ],
+        [
+            "c_free_finalizer",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafePackMallocCStringLen": [
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "c_free_finalizer",
+            "Data/ByteString/Internal/Type.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeUseAsCString": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ],
+    "Data/ByteString/Unsafe.hs--unsafeUseAsCStringLen": [
+        [
+            "withForeignPtr",
+            "Data/LiquidPtr.hs"
+        ],
+        [
+            "castPtr",
+            "Data/LiquidPtr.hs"
+        ]
+    ]
+}
