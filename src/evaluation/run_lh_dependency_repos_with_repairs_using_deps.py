@@ -228,10 +228,10 @@ class LiquidFile():
         llm_prog = self.code
         # FIXME: Hack to shorten prompt, because Crypt.hs is too long
         # TODO: Try to keep only dependencies or functions that have types
+        if "codellama" in llm and self.name == "Quarterround.hs":
+            llm_prog = "\n".join(llm_prog.split("\n")[:85] + llm_prog.split("\n")[130:])
         parts = llm_prog.split('-}')
         llm_prog = '-}'.join(parts[1:]).strip()
-        if self.name == "Data/ByteString/Internal/Pure.hs":
-            llm_prog = "\n".join(llm_prog.split("\n")[:423])
         if self.name == "Data/ByteString/Internal/Type.hs":
             llm_prog = "\n".join(llm_prog.split("\n")[:274])
         pattern = re.escape(self.liquid_types[func]) # + r"\s*?\n"
@@ -250,7 +250,13 @@ class LiquidFile():
                 llm_prog = re.sub(pattern, "", llm_prog, 1)
 
         split_code = llm_prog.split("<fimask>")
-        prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
+        prompt = None
+        if self.name == "Data/ByteString/Internal/Pure.hs":
+            part_0 = "\n".join(split_code[0].split("\n")[-100:])
+            part_1 = "\n".join(split_code[1].split("\n")[:100])
+            prompt = f"{FIM_PREFIX}{prefix}{part_0}{FIM_SUFFIX}{part_1}{FIM_MIDDLE}"
+        else:
+            prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
         return prompt
 
     def func_has_more_preds_avail(self, func):
@@ -554,7 +560,8 @@ class ProjectState():
             result != "" and "UNSAFE" not in result and "Error:" not in result and "SAFE" in result:
             self.seen_states[str_state] = True
         elif GITHUB_REPO == "bytestring" and \
-            result != "" and "UNSAFE" not in result and "[17 of 34] Compiling Data.ByteString.Builder.RealFloat.Internal" in result:
+            result != "" and (("UNSAFE" not in result and "[17 of 34] Compiling Data.ByteString.Builder.RealFloat.Internal" in result) or \
+                ("of 34] Compiling Data.ByteString.Builder.Prim.Binary" in result)):
             self.seen_states[str_state] = True
         if not self.seen_states[str_state]:
             self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
@@ -608,12 +615,13 @@ class ProjectState():
         for key, deps in self.dependencies.items():
             if len(deps) == 0:
                 queue.append(key)
-                self.upper_bounds[key] = 10
+                self.upper_bounds[key] = 15
         visited = set()
         while queue:
             key = queue.popleft()
             if key in visited:
                 continue
+            # TODO: Will this work with all the bug-fixes and better LLMs?
             # if not self.files[key[0]].is_exported(key[1]):
             #     self.upper_bounds[key] += 5
             visited.add(key)
@@ -709,10 +717,7 @@ def run_tests(args):
         filename = key.split("--")[0].strip()
         func = key.split("--")[1].strip()
         if (filename, func) not in new_dependencies:
-            if GITHUB_REPO == "hsalsa20":
-                new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
-            else:
-                new_dependencies[(filename, func)] = [(l[1], l[0]) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
+            new_dependencies[(filename, func)] = [tuple(l) for l in dependencies[key]] #Because we had lists of 2 elements in dependnecies file
     dependencies = new_dependencies
     # NOTE: Clean-up in case we are missing some file-function pairs?
     for filename, func in dependencies:
@@ -832,17 +837,13 @@ def run_tests(args):
             if len(all_preds) == prev_len:
                 print("No new predictions...", flush=True)
             # elif (len(all_preds) > 20 or len(all_preds) == prev_len or len(all_preds) == 0) and not project_state.is_using_ground_truth():
-            if len(all_preds) == 0 and not project_state.is_using_ground_truth():
-                print(f"Testing the ground truth type, since we got no predictions...", flush=True)
-                # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(all_preds)})...", flush=True)
-                project_state.set_file_func_to_ground()
             if not project_state.is_using_ground_truth():
                 file_obj.type_preds_cache[func] = all_preds
                 file_obj.num_of_llm_calls[func] = num_of_preds
-        # elif not project_state.is_using_ground_truth() and not project_state.state_llm_calls_less_than_max() and not project_state.has_more_preds_avail():
-        #     # If we can't generate any good types with LLMs, then test the ground truth (correct type from user)
-        #     print(f"Testing the ground truth type, since we reached max limit of predictions...", flush=True)
-        #     project_state.set_file_func_to_ground()
+            if len(all_preds) == 0 and not project_state.is_using_ground_truth() and not project_state.state_llm_calls_less_than_max():
+                print(f"Testing the ground truth type, since we got no predictions...", flush=True)
+                # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(all_preds)})...", flush=True)
+                project_state.set_file_func_to_ground()
 
             file_obj.update_func_qualifiers(func)
 
