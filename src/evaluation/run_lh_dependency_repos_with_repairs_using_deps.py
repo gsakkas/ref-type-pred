@@ -159,7 +159,7 @@ class LiquidFile():
                     clean_inputs.append(clean_qual)
 
             for i, p in clean_predicates:
-                var_names = ["w", "z", "y", "x"]
+                var_names = ["k", "l", "w", "z", "y", "x"]
                 all_vars = [i]
                 var_i = i.split(":")[0].strip()
                 key = f"({i}): {p}".replace(var_i, var_names.pop())
