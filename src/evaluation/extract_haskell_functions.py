@@ -3,7 +3,7 @@ from tree_sitter import Language, Parser
 # Load the Haskell grammar
 Language.build_library(
     'build/my-languages.so',
-    ['./tree-sitter-haskell']
+    ['./src/tree-sitter-haskell']
 )
 
 HASKELL_LANGUAGE = Language('build/my-languages.so', 'haskell')

@@ -3,7 +3,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
 
 class StarCoderModel():
-    def __init__(self, cdir="/tmp3/gsakkas/huggingface"):
+    def __init__(self, use_finetuned, cdir="/tmp3/gsakkas/huggingface"):
+        print("Loading StarCoder 3B...")
         tokenizer = AutoTokenizer.from_pretrained(
             "bigcode/starcoderbase-3b",
             # "bigcode/starcoder2-3b",
@@ -25,22 +26,26 @@ class StarCoderModel():
             cache_dir=cdir
         )
 
-        # Best checkpoint on training set
-        model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/checkpoint-16900")
-        # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/final_checkpoint")
-        # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/checkpoint-12650")
-        # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/final_checkpoint")
-        # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps/checkpoint-13800")
-        model = model.merge_and_unload()
+        if use_finetuned:
+            # Best checkpoint on training set
+            print("Merging LoRa-finetuned version...")
+            model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/checkpoint-16900")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/final_checkpoint")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/checkpoint-12650")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/final_checkpoint")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps/checkpoint-13800")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps_rank_64_dropout_0_1/checkpoint-13500")
+            model = model.merge_and_unload()
 
         self.tokenizer = tokenizer
         self.model = model
+        print("Finished loading...")
 
 
     def get_code_suggestions(self, prompt, num_sugg):
         responses = []
         while len(responses) < num_sugg:
-            local_responses = self.get_response_with_retries(prompt, 4, 128)
+            local_responses = self.get_response_with_retries(prompt, 2, 128)
             if not local_responses:
                 return responses
             responses.extend(local_responses)
@@ -77,7 +82,7 @@ class StarCoderModel():
                 predictions = self.model.generate(input_ids=input_ids,
                                             pad_token_id=self.tokenizer.eos_token_id,
                                             do_sample=True,
-                                            temperature=0.8,
+                                            temperature=0.95,
                                             top_k=100,
                                             top_p=0.95,
                                             num_return_sequences=local_num_seqs,
@@ -86,6 +91,7 @@ class StarCoderModel():
                 return responses
             except Exception as err:
                 print(f"Exception in get_response_with_retries {err}...||...")
-                local_num_seqs //= 2
+                if local_num_seqs > 1:
+                    local_num_seqs //= 2
                 continue
         return None

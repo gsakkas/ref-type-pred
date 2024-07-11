@@ -10,6 +10,7 @@ from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
 from predict.get_codellama_code_suggestions import CodeLlamaModel
 from evaluation.prog_diff import get_token_differences
+from evaluation.extract_haskell_functions import extract_and_group_haskell_functions
 
 LIQUID_PRAGMAS = set(["predicate", "embed", "liquid", "LIQUID", "data", "type", "measure", "inline", "assume", "ignore"])
 GITHUB_REPO = None
@@ -22,6 +23,12 @@ def get_args():
                         help='maximum number of predictions to generate with the model in total (default: 50)')
     parser.add_argument('--llm', default="starcoderbase-3b",
                         help='llm to use for code generation {starcoderbase-1b, -3b, -15b, codellama-7b} (default: starcoderbase-3b)')
+    parser.add_argument('--use_finetuned', action='store_true',
+                        help='use finetuned LLM (default: False)')
+    parser.add_argument('--use_qualifiers', action='store_true',
+                        help='use qualifiers extracted from the predicted types (default: False)')
+    parser.add_argument('--use_dependencies_in_prompt', action='store_true',
+                        help='use function dependencies in the prompt for more context (default: False)')
     parser.add_argument('--update_cache', action='store_true',
                         help='update the prompt cache (default: False)')
     parser.add_argument('--use_cache', action='store_true',
@@ -174,7 +181,7 @@ class LiquidFile():
                     self.func_predicates[func].append(f"{{-@ qualif {func.capitalize()}_{idx}({', '.join(all_vars)}): {p} @-}}")
                     idx += 1
 
-    def update_types_in_file(self):
+    def update_types_in_file(self, use_qualifiers):
         llm_prog = self.code
         qualifiers = []
         for func, ltype in self.current_types.items():
@@ -193,7 +200,8 @@ class LiquidFile():
         exports_idx = llm_prog.find(self.orig_exports)
         where_end_idx = llm_prog.find("where", exports_idx) + len("where")
         prefix = llm_prog[:where_end_idx]
-        llm_prog = llm_prog.replace(prefix, prefix + "\n\n" + "\n".join(qualifiers) + "\n")
+        if use_qualifiers:
+            llm_prog = llm_prog.replace(prefix, prefix + "\n\n" + "\n".join(qualifiers) + "\n")
         return llm_prog
 
     def set_func_type(self, func, ltype):
@@ -212,18 +220,18 @@ class LiquidFile():
     def is_exported(self, func):
         return func in self.exports
 
-    def make_prompt_for_func(self, func, llm):
-        FIM_PREFIX, FIM_MIDDLE, FIM_SUFFIX, prefix = None, None, None, None
+    def make_prompt_for_func(self, func, code_snippets, llm):
+        FIM_PREFIX, FIM_MIDDLE, FIM_SUFFIX = None, None, None
         if "starcoder" in llm:
             FIM_PREFIX = "<fim_prefix>"
             FIM_MIDDLE = "<fim_middle>"
             FIM_SUFFIX = "<fim_suffix>"
-            prefix = f"<filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
         elif "codellama" in llm:
             FIM_PREFIX = "<PRE> "
             FIM_MIDDLE = " <MID>"
             FIM_SUFFIX = " <SUF>"
-            prefix = f"-- <filename>solutions/{self.name}\n-- Fill in the masked refinement type in the following LiquidHaskell program\n"
+        prefix = f"<filename>solutions/{self.name}\n"
+        prefix += "-- Fill in the masked refinement type in the following LiquidHaskell program\n"
 
         llm_prog = self.code
         # FIXME: Hack to shorten prompt, because Crypt.hs is too long
@@ -254,9 +262,15 @@ class LiquidFile():
         if self.name == "Data/ByteString/Internal/Pure.hs":
             part_0 = "\n".join(split_code[0].split("\n")[-100:])
             part_1 = "\n".join(split_code[1].split("\n")[:100])
-            prompt = f"{FIM_PREFIX}{prefix}{part_0}{FIM_SUFFIX}{part_1}{FIM_MIDDLE}"
+            if code_snippets:
+                part_1 = "\n".join(split_code[1].split("\n")[:50])
+            prompt = f"{FIM_PREFIX}{code_snippets}{prefix}{part_0}{FIM_SUFFIX}{part_1}{FIM_MIDDLE}"
         else:
-            prompt = f"{FIM_PREFIX}{prefix}{split_code[0]}{FIM_SUFFIX}{split_code[1]}{FIM_MIDDLE}"
+            part_0 = split_code[0]
+            part_1 = "\n".join(split_code[1].split("\n")[:100])
+            if code_snippets:
+                part_1 = "\n".join(split_code[1].split("\n")[:50])
+            prompt = f"{FIM_PREFIX}{code_snippets}{prefix}{part_0}{FIM_SUFFIX}{part_1}{FIM_MIDDLE}"
         return prompt
 
     def func_has_more_preds_avail(self, func):
@@ -285,7 +299,7 @@ class LiquidFile():
 
 
 class ProjectState():
-    def __init__(self, exec_path, all_files, dependencies, max_preds):
+    def __init__(self, exec_path, all_files, dependencies, max_preds, use_qualifiers):
         # Global state variables
         self.exec_path = exec_path
         self.src_path = exec_path
@@ -296,6 +310,7 @@ class ProjectState():
         self.files = OrderedDict()
         self.curr_file_code = {}
         self.upper_bounds = {}
+        self.use_qualifiers = use_qualifiers
         # Clean repo
         print("Initializing and cleaning up repo...", flush=True)
         cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
@@ -498,12 +513,29 @@ class ProjectState():
                     dep_file_obj.total_times_tested[dep_func] += 1
                     queue.append((dep_filename, dep_func))
 
+    def get_all_dependencies_code_snippets(self):
+        dep_files = defaultdict(list)
+        for dep_filename, dep_func in self.get_all_dependencies():
+            new_code = self.files[dep_filename].update_types_in_file(self.use_qualifiers)
+            file_snippets = extract_and_group_haskell_functions(new_code)
+            if dep_func in file_snippets:
+                dep_files[dep_filename].append(file_snippets[dep_func])
+        all_code_snippets = ""
+        for dep_filename, all_dep_functions_code in dep_files.items():
+            all_code_snippets += f"<filename>solutions/{dep_filename}\n"
+            for code_snippet in all_dep_functions_code:
+                all_code_snippets += code_snippet + "\n\n"
+
+        print(all_code_snippets)
+
+        return all_code_snippets
+
     def verify_project(self):
         self.file_obj.total_times_tested[self.func] += 1
         # self.propagate_times_tested_up()
         # Write to files only here to avoid unnecessary writes
         for filename, file_obj in self.files.items():
-            new_code = file_obj.update_types_in_file()
+            new_code = file_obj.update_types_in_file(self.use_qualifiers)
             # print(f"------ File: {filename}:")
             # print_prog_liquid_types(new_code)
             if self.curr_file_code[filename] != new_code:
@@ -726,12 +758,12 @@ def run_tests(args):
 
     # Load (finetuned) code LLM
     if "starcoder" in args.llm:
-        code_llm = StarCoderModel()
+        code_llm = StarCoderModel(args.use_finetuned)
     elif "codellama" in args.llm:
-        code_llm = CodeLlamaModel()
+        code_llm = CodeLlamaModel(args.use_finetuned)
 
     # Initialize Liquid Haskell project state with all the files and function dependencies
-    project_state = ProjectState(args.exec_dir, all_files, dependencies, args.max_preds)
+    project_state = ProjectState(args.exec_dir, all_files, dependencies, args.max_preds, args.use_qualifiers)
 
     for filename, func in project_state.dependencies:
         total_num_of_funcs_per_file[filename] += 1
@@ -805,8 +837,11 @@ def run_tests(args):
         num_of_iterations += 1
         solved = False
         if not project_state.is_using_ground_truth() and project_state.state_llm_calls_less_than_max() and \
-                (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()) :
-            prompt = file_obj.make_prompt_for_func(func, args.llm)
+                (file_obj.tested_types_num[func] == 0 or not project_state.has_more_preds_avail()):
+            dependencies_code_snippets = ""
+            if args.use_dependencies_in_prompt:
+                dependencies_code_snippets = project_state.get_all_dependencies_code_snippets()
+            prompt = file_obj.make_prompt_for_func(func, dependencies_code_snippets, args.llm)
             # Prompt key includes all predicted types so far, the current file and function and how many times we called with this prompt
             prompt_key = filename + "--" + func + "<-->" + project_state.get_type_state_key() + "<-->" + str(file_obj.num_of_llm_calls[func] // args.total_preds)
             if prompt_key not in prompt_cache:
@@ -845,7 +880,8 @@ def run_tests(args):
                 # print(f"Testing the ground truth type, since we got too many unique or no predictions ({len(all_preds)})...", flush=True)
                 project_state.set_file_func_to_ground()
 
-            file_obj.update_func_qualifiers(func)
+            if args.use_qualifiers:
+                file_obj.update_func_qualifiers(func)
 
         for q in file_obj.get_func_qualifiers(func):
             print(q)
