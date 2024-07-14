@@ -5,13 +5,12 @@ import argparse
 import os
 
 import torch
-from accelerate import Accelerator
 from datasets import load_dataset, load_from_disk
 from peft import LoraConfig, get_peft_model
-from peft import prepare_model_for_int8_training, set_peft_model_state_dict
+from peft import set_peft_model_state_dict, prepare_model_for_kbit_training
 from torch.utils.data import IterableDataset
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, logging, set_seed
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, BitsAndBytesConfig, logging, set_seed
 from transformers import TrainerCallback, TrainingArguments, TrainerState, TrainerControl
 from transformers.trainer_utils import PREFIX_CHECKPOINT_DIR
 
@@ -41,10 +40,10 @@ class LoadBestPeftModelCallback(TrainerCallback):
         **kwargs,
     ):
         print(f"Loading best peft model from {state.best_model_checkpoint} (score: {state.best_metric}).")
-        best_model_path = os.path.join(state.best_model_checkpoint, "pytorch_model.bin")
-        adapters_weights = torch.load(best_model_path)
-        model = kwargs["model"]
-        set_peft_model_state_dict(model, adapters_weights)
+        # best_model_path = os.path.join(state.best_model_checkpoint, "pytorch_model.bin")
+        # adapters_weights = torch.load(best_model_path)
+        # model = kwargs["model"]
+        # set_peft_model_state_dict(model, adapters_weights)
         return control
 
 class PrintInitialStateCallback(TrainerCallback):
@@ -223,16 +222,17 @@ def create_datasets(tokenizer, args):
     #     streaming=args.streaming,
     # )
     dataset = load_from_disk(args.dataset_name)
+    dataset = dataset["train"]
     if args.streaming:
         print("Loading the dataset in streaming mode")
         valid_data = dataset.take(args.size_valid_set)
         train_data = dataset.skip(args.size_valid_set)
         train_data = train_data.shuffle(buffer_size=args.shuffle_buffer, seed=args.seed)
     else:
-        valid_data = dataset["validation"]
-        # valid_data = dataset.select(range(args.size_valid_set))
-        train_data = dataset["train"]
-        # train_data = dataset.select(range(args.size_valid_set, dataset.num_rows))
+        # valid_data = dataset["validation"]
+        valid_data = dataset.select(range(0, args.size_valid_set*10, 10))
+        # train_data = dataset["train"]
+        train_data = dataset #.select(range(args.size_valid_set, dataset.num_rows))
         print(f"Size of the train set: {len(train_data)}. Size of the validation set: {len(valid_data)}")
 
     chars_per_token = chars_token_ratio(train_data, tokenizer, args.input_column_name, args.output_column_name)
@@ -261,16 +261,34 @@ def create_datasets(tokenizer, args):
 
 def run_training(args, train_data, val_data):
     print("Loading the model")
+
+    quant_config = BitsAndBytesConfig(
+        load_in_8bit=True,
+    )
+
+    if "CodeLlama" in args.model_path:
+        quant_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.float16
+        )
+
     # disable caching mechanism when using gradient checkpointing
     model = AutoModelForCausalLM.from_pretrained(
         args.model_path,
         cache_dir=args.model_dir,
         use_auth_token=True,
         use_cache=not args.no_gradient_checkpointing,
-        load_in_8bit=True,
-        device_map={"": Accelerator().process_index},
+        quantization_config=quant_config,
+        device_map="auto",
     )
-    model = prepare_model_for_int8_training(model)
+
+    model = prepare_model_for_kbit_training(model)
+
+    trgt_modules = ["c_proj", "c_attn", "q_attn"]
+    if "CodeLlama" in args.model_path:
+        trgt_modules = ["q_proj", "o_proj", "k_proj", "v_proj", "gate_proj", "up_proj", "down_proj", "c_attn", "q_attn"]
 
     lora_config = LoraConfig(
         r=args.lora_r,
@@ -278,7 +296,7 @@ def run_training(args, train_data, val_data):
         lora_dropout=args.lora_dropout,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules = ["c_proj", "c_attn", "q_attn"]
+        target_modules = trgt_modules
     )
 
     model = get_peft_model(model, lora_config)
