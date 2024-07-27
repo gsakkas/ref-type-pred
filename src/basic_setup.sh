@@ -25,4 +25,5 @@ export OPENAI_KEY="dummy"
 export PYTHONPATH=$PYTHONPATH:/home/gsakkas/ref-type-pred/src
 huggingface-cli login --token dummy # TODO: change dummy with actual token
 CUDA_VISIBLE_DEVICES=0 python src/predict/run_llm_generation.py --llm starcoderbase-3B --use_finetuned --data_file benchmarks/lh_test_set_final_with_haskell_types_and_tests_v3.jsonl --total_repairs 50 --cache_file benchmarks/lh_finetuned_v2_starcoder_3b_cache_with_haskell_types_and_tests_v3.json --create_cache_only
+python src/evaluation/run_lh_test_set_with_repairs.py --cache_file benchmarks/lh_finetuned_v2_starcoder_3b_cache_with_haskell_types_and_tests_v3.json --data_dir /home/gsakkas/liququidhaskell/lh_exercises > results/lh_single_type_tests_with_haskell_types_and_tests_finetuned_v2_starcoder_3b_0_95_temp_50_preds_1.txt
 CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_test_set_with_repairs.py --total_preds 10 --max_preds 50 > results/lh_dependency_tests_starcoderbase_3b_test.txt

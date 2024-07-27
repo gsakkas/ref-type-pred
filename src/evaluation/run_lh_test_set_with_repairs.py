@@ -3,6 +3,7 @@ from os.path import join
 import json
 import re
 import subprocess as subp
+import numpy as np
 
 
 KEEP_AND_COMMENT_NON_CODE = False
@@ -12,7 +13,7 @@ MASK_ONLY_POST_COND = False
 def get_args():
     parser = argparse.ArgumentParser(description='run_lh_tests')
     parser.add_argument('--cache_file', default="lh_starcoderbase_3B_finetuned_with_the_stack_cache_raw_v3.json",
-                        help='use the given file for prompt -> generation cache (default: raw_v3_20_repairs cache)')
+                        help='use the given file for prompt -> generation cache (default: raw_v3_20_preds cache)')
     parser.add_argument('--data_dir', default="/home/gsakkas/Documents/UCSD/Program-Analytics/liquidhaskell/lh_exercises",
                         help='benchmark data directory (default: liquidhaskell/lh_exercises)')
     parser.add_argument('--print_preds', action="store_true", default=False,
@@ -21,6 +22,21 @@ def get_args():
                         help='output data directory (default: ./results)')
     _args = parser.parse_args()
     return _args
+
+
+def pass_at_k(n, c, k):
+    """
+    :param n: total number of samples
+    :param c: number of correct samples
+    :param k: k in pass@$k$
+    """
+    if n == 0:
+        return 0.0
+    if c == 0 and n < k:
+        return 0.0
+    if n - c < k:
+        return 1.0
+    return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
 
 
 def comment_out_non_code(prog):
@@ -140,21 +156,17 @@ difficulties = {
     "Ex12-7-3.hs--merge": 2
 }
 
-# cache_file = "lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_raw_v3.json"
-# cache_file = "lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_with_haskell_types_v3.json"
-# cache_file = "lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_with_haskell_types_and_tests_v3_temp_098.json"
-
 with open(args.cache_file, "r", encoding="utf-8") as cache_fin:
     cache = json.loads(cache_fin.read())
 
 fixed_progs = 0
 all_progs = 0
 samples_per_difficulty = {k: 0 for k in [0, 1, 2]}
-llm_repairs_per_difficulty = {k: 0 for k in [0, 1, 2]}
+llm_preds_per_difficulty = {k: 0 for k in [0, 1, 2]}
 samples_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
-llm_repairs_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
+llm_preds_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
 samples_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
-llm_repairs_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
+llm_preds_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
 path_to_testset = "../liquidhaskell/lh_exercises/correct_baselines"
 for k in list(cache.keys()):
     all_progs += 1
@@ -168,26 +180,26 @@ for k in list(cache.keys()):
     fix_prog = ""
     with open(join(path_to_testset, bfile + "_correct.hs"), "r", encoding="utf-8") as good_fin:
         fix_prog = good_fin.read()
-    seen_repairs = set()
-    for llm_repair in cache[k]:
+    seen_preds = set()
+    for llm_pred in cache[k]:
         with open(join(path_to_testset, bfile + "_llm.hs"), "w", encoding="utf-8") as llm_fin:
-            if "@-}" in llm_repair:
-                llm_repair = llm_repair.split("@-}")[0].rstrip()
-            if "\\" in llm_repair:
-                llm_repair = llm_repair.replace("\\", "\\\\")
-            if "<file_sep>" in llm_repair:
-                llm_repair = llm_repair.split("<file_sep>")[0]
-            if llm_repair in seen_repairs:
+            if "@-}" in llm_pred:
+                llm_pred = llm_pred.split("@-}")[0].rstrip()
+            if "\\" in llm_pred:
+                llm_pred = llm_pred.replace("\\", "\\\\")
+            if "<file_sep>" in llm_pred:
+                llm_pred = llm_pred.split("<file_sep>")[0]
+            if llm_pred in seen_preds:
                 continue
-            seen_repairs.add(llm_repair)
+            seen_preds.add(llm_pred)
             if args.print_preds:
                 print("--------------------------------------")
-                print(f"{{-@ {func} :: {llm_repair} @-}}")
+                print(f"{{-@ {func} :: {llm_pred} @-}}")
                 print("--------------------------------------")
 
             ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)
             # TODO: Just a random check, cause LH crashes for too long types
-            if len(llm_repair) > len(ground_truth[0]) + 32:
+            if len(llm_pred) > len(ground_truth[0]) + 32:
                 if args.print_preds:
                     print("UNSAFE", flush=True)
                 continue
@@ -196,9 +208,9 @@ for k in list(cache.keys()):
             if MASK_ONLY_POST_COND:
                 return_type = ground_truth[0].split("->")[-1].strip()
                 pre_cond = ' -> '.join([typ.strip() for typ in ground_truth[0].split("->")[:-1]])
-                llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {pre_cond} -> {llm_repair} @-}}", fix_prog, 1)
+                llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {pre_cond} -> {llm_pred} @-}}", fix_prog, 1)
             else:
-                llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {llm_repair} @-}}", fix_prog, 1)
+                llm_prog = re.sub(r"{-@\s*?" + func + r"\s*?::[\s\S]*?@-}", f"{{-@ {func} :: {llm_pred} @-}}", fix_prog, 1)
             llm_fin.write(llm_prog)
             # print(llm_prog, flush=True)
 
@@ -211,16 +223,16 @@ for k in list(cache.keys()):
         result = test_output.stdout.decode('utf-8').strip()
         if result != "" and "UNSAFE" not in result and "SAFE" in result:
             fixed_progs += 1
-            llm_repairs_per_difficulty[difficulties[k]] += 1
-            llm_repairs_per_func[func] += 1
-            llm_repairs_per_exer[exercise] += 1
+            llm_preds_per_difficulty[difficulties[k]] += 1
+            llm_preds_per_func[func] += 1
+            llm_preds_per_exer[exercise] += 1
             if args.print_preds:
                 print("SAFE", flush=True)
             break
         if args.print_preds:
             print("UNSAFE", flush=True)
-    print(f"{len(seen_repairs)} unique repairs", flush=True)
-    if llm_repairs_per_func[func] > 0:
+    print(f"{len(seen_preds)} unique preds", flush=True)
+    if llm_preds_per_func[func] > 0:
         print("--> SAFE")
     else:
         print("--> UNSAFE")
@@ -229,26 +241,26 @@ for k in list(cache.keys()):
 
 print("============================================================")
 print("============================================================")
-print(f"{fixed_progs} / {all_progs} llm repairs")
-print(f"{fixed_progs * 100 / all_progs:.2f}% llm repair rate")
+print(f"{fixed_progs} / {all_progs} llm type predictions")
+print(f"{fixed_progs * 100 / all_progs:.2f}% llm accuracy")
 print("============================================================")
 print("============================================================")
 for k in [0, 1, 2]:
     print("------------------------------------------------------------")
     print(f">>> {diffsToStr[k]} difficulty")
-    print(f"{llm_repairs_per_difficulty[k]} / {samples_per_difficulty[k]} llm repairs")
-    print(f"{llm_repairs_per_difficulty[k] * 100 / samples_per_difficulty[k]:.2f}% repair rate")
+    print(f"{llm_preds_per_difficulty[k]} / {samples_per_difficulty[k]} llm type predictions")
+    print(f"{llm_preds_per_difficulty[k] * 100 / samples_per_difficulty[k]:.2f}% accuracy")
 print("============================================================")
 print("============================================================")
-for k in sorted(llm_repairs_per_func.keys()):
+for k in sorted(llm_preds_per_func.keys()):
     print("------------------------------------------------------------")
     print(f">>> func == `{k}`")
-    print(f"{llm_repairs_per_func[k]} / {samples_per_func[k]} llm repairs")
-    print(f"{llm_repairs_per_func[k] * 100 / samples_per_func[k]:.2f}% repair rate")
+    print(f"{llm_preds_per_func[k]} / {samples_per_func[k]} llm type predictions")
+    print(f"{llm_preds_per_func[k] * 100 / samples_per_func[k]:.2f}% accuracy")
 print("============================================================")
 print("============================================================")
-for k in sorted(llm_repairs_per_exer.keys()):
+for k in sorted(llm_preds_per_exer.keys()):
     print("------------------------------------------------------------")
     print(f">>> Chapter {k[2:]}")
-    print(f"{llm_repairs_per_exer[k]} / {samples_per_exer[k]} llm repairs")
-    print(f"{llm_repairs_per_exer[k] * 100 / samples_per_exer[k]:.2f}% repair rate")
+    print(f"{llm_preds_per_exer[k]} / {samples_per_exer[k]} llm type predictions")
+    print(f"{llm_preds_per_exer[k] * 100 / samples_per_exer[k]:.2f}% accuracy")
