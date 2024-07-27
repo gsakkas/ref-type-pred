@@ -6,7 +6,6 @@ import gc
 import json
 import re
 import subprocess as subp
-from math import sqrt, ceil
 from predict.get_starcoder_code_suggestions import StarCoderModel
 from predict.get_codellama_code_suggestions import CodeLlamaModel
 from evaluation.prog_diff import get_token_differences
@@ -138,8 +137,6 @@ class LiquidFile():
         for t_pred in self.type_preds_cache[func]:
             clean_predicates = []
             for inputs, predicates in re.findall(qualifier_pattern, t_pred):
-                # i = re.sub(r":\s*?\[.+?\]", ": [_]", inputs)
-                # if "[_]" not in i:
                 i = re.sub(r":.+", ": a", inputs)
                 if "&&" in predicates:
                     temp = predicates.strip().replace(' = ', ' == ')
@@ -160,9 +157,7 @@ class LiquidFile():
             for qual in t_pred.split('->'):
                 if ':' in qual and "|" not in qual:
                     clean_qual = qual.strip().strip('(').strip(')').strip()
-                    # if "[_]" not in clean_qual:
                     clean_qual = re.sub(r":.+", ": a", clean_qual)
-                    # clean_inputs.append(re.sub(r"\[.+?\]", "[_]", clean_qual))
                     clean_inputs.append(clean_qual)
 
             for i, p in clean_predicates:
@@ -268,6 +263,8 @@ class LiquidFile():
         else:
             part_0 = split_code[0]
             part_1 = "\n".join(split_code[1].split("\n")[:100])
+            if "codellama" in llm and code_snippets:
+                part_0 = "\n".join(split_code[0].split("\n")[-75:])
             if code_snippets:
                 part_1 = "\n".join(split_code[1].split("\n")[:50])
             prompt = f"{FIM_PREFIX}{code_snippets}{prefix}{part_0}{FIM_SUFFIX}{part_1}{FIM_MIDDLE}"
@@ -426,30 +423,6 @@ class ProjectState():
             deps.append((dep_filename, dep_func))
         return deps
 
-    def get_least_tested_dependency_not_in_stack(self, stack):
-        key = (self.filename, self.func)
-        all_deps_are_set = self.deps_have_been_proven()
-        next_key = None
-        untested_types = 100000 # len(next_file_obj.type_preds_cache[next_func]) - next_file_obj.tested_types_num[next_func]
-        for dep_filename, dep_func in self.dependencies[key]:
-            dep_file_obj = self.files[dep_filename]
-            if dep_file_obj.current_types[dep_func] and dep_file_obj.using_ground_truth[dep_func]:
-                # Skip since it has a type already, that is probably correct
-                print(dep_filename, dep_func, "is already ground truth")
-                continue
-            if not all_deps_are_set and dep_file_obj.current_types[dep_func]:
-                print(dep_filename, dep_func, "has a type but others are unassigned")
-                continue
-            if (dep_filename, dep_func) in stack:
-                print(dep_filename, dep_func, "in stack")
-                continue
-            # temp = len(dep_file_obj.type_preds_cache[dep_func]) - dep_file_obj.tested_types_num[dep_func]
-            temp = dep_file_obj.total_times_tested[dep_func]
-            if temp < untested_types:
-                untested_types = temp
-                next_key = (dep_filename, dep_func)
-        return next_key
-
     def get_least_used_dependency_not_in_stack(self, stack):
         root_key = (self.filename, self.func)
         queue = deque([root_key])
@@ -468,7 +441,7 @@ class ProjectState():
                     candidate_key = (dep_filename, dep_func)
                     parents[candidate_key] = key
                     if candidate_key not in visited and candidate_key not in queue:
-                        temp = dep_file_obj.total_times_tested[dep_func] / max(0.1, len(dep_file_obj.type_preds_cache[dep_func]))
+                        temp = dep_file_obj.total_times_tested[dep_func] / max(1, len(dep_file_obj.type_preds_cache[dep_func]))
                         queue.append(candidate_key)
                         if dep_file_obj.current_types[dep_func] and dep_file_obj.using_ground_truth[dep_func]:
                             # Skip since it has a type already, that is probably correct
@@ -499,20 +472,6 @@ class ProjectState():
         type_state = type_state[:-3]
         return type_state
 
-    def propagate_times_tested_up(self):
-        queue = deque([(self.filename, self.func)])
-        visited = set()
-        while queue:
-            key = queue.popleft()
-            if key in visited:
-                continue
-            visited.add(key)
-            for dep_filename, dep_func in self.dependencies[key]:
-                dep_file_obj = self.files[dep_filename]
-                if (dep_filename, dep_func) not in visited and (dep_filename, dep_func) not in queue:
-                    dep_file_obj.total_times_tested[dep_func] += 1
-                    queue.append((dep_filename, dep_func))
-
     def get_all_dependencies_code_snippets(self):
         dep_files = defaultdict(list)
         for dep_filename, dep_func in self.get_all_dependencies():
@@ -527,12 +486,10 @@ class ProjectState():
                 all_code_snippets += code_snippet + "\n\n"
 
         print(all_code_snippets)
-
         return all_code_snippets
 
     def verify_project(self):
         self.file_obj.total_times_tested[self.func] += 1
-        # self.propagate_times_tested_up()
         # Write to files only here to avoid unnecessary writes
         for filename, file_obj in self.files.items():
             new_code = file_obj.update_types_in_file(self.use_qualifiers)
@@ -592,11 +549,10 @@ class ProjectState():
             result != "" and "UNSAFE" not in result and "Error:" not in result and "SAFE" in result:
             self.seen_states[str_state] = True
         elif GITHUB_REPO == "bytestring" and \
-            result != "" and (("UNSAFE" not in result and "[17 of 34] Compiling Data.ByteString.Builder.RealFloat.Internal" in result) or \
-                ("of 34] Compiling Data.ByteString.Builder.Prim.Binary" in result)):
+            result != "" and ("UNSAFE" not in result and "[17 of 34] Compiling Data.ByteString.Builder.RealFloat.Internal" in result):
             self.seen_states[str_state] = True
-        if not self.seen_states[str_state]:
-            self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
+        # if not self.seen_states[str_state]:
+        #     self.file_obj.total_times_tested[self.func] += len(self.file_obj.type_preds_cache[self.func]) - 1
         return self.seen_states[str_state]
 
     def is_using_ground_truth(self):
@@ -647,20 +603,17 @@ class ProjectState():
         for key, deps in self.dependencies.items():
             if len(deps) == 0:
                 queue.append(key)
-                self.upper_bounds[key] = 15
+                self.upper_bounds[key] = 10
         visited = set()
         while queue:
             key = queue.popleft()
             if key in visited:
                 continue
-            # TODO: Will this work with all the bug-fixes and better LLMs?
-            # if not self.files[key[0]].is_exported(key[1]):
-            #     self.upper_bounds[key] += 5
             visited.add(key)
             for next_key, deps in self.dependencies.items():
                 if key in deps and next_key not in visited and next_key not in queue:
                     queue.append(next_key)
-                    self.upper_bounds[next_key] = self.upper_bounds[key] + 1
+                    self.upper_bounds[next_key] = max(2, self.upper_bounds[key] - 1)
         return self.upper_bounds
 
 
@@ -798,18 +751,11 @@ def run_tests(args):
         if num_of_iterations >= MAX_ITERATIONS:
             print(f"Too many iterations {num_of_iterations}; Exiting...", flush=True)
             break
-        # if num_of_skipped > len(func_stack):
-        #     print("Something went wrong... No more deps could be tested...")
-        #     print("The remaining stack:")
-        #     print(f"{filename} --> {func})", flush=True)
-        #     for _fname, _func in reversed(func_stack):
-        #         print(f"{_fname} --> {_func}")
-        #     break
+
         print("=" * 42)
         print(f"Solving {filename} ({func})...", flush=True)
         if not project_state.deps_have_been_proven():
             # Not all dependencies have a type, thus no need to check this key yet
-            # num_of_skipped += 1
             print(f"Not all dependencies are done yet... Pushing them up the stack...")
             func_stack.append(key)
             # Add least tested dependency to stack
@@ -822,18 +768,8 @@ def run_tests(args):
                 elif not project_state.files[dep[0]].current_types[dep[1]]:
                     print(f"Adding {dep} in stack...", flush=True)
                     func_stack.append(dep)
-            # if next_key:
-            #     func_stack.append(next_key)
-            #     print(f"Backtracking to dependent function = {next_key}...", flush=True)
-            # else:
-            #     print("No more dependent functions to backtrack to...", flush=True)
-            #     print("Pushing failed function at the beginning of stack...", flush=True)
-            #     # Removing current key
-            #     func_stack.pop()
-            #     func_stack.appendleft(key)
             continue
         print_stack(func_stack)
-        # num_of_skipped = 0
         num_of_iterations += 1
         solved = False
         if not project_state.is_using_ground_truth() and project_state.state_llm_calls_less_than_max() and \
@@ -853,7 +789,7 @@ def run_tests(args):
             if file_obj.is_exported(func):
                 type_preds = [tpred for tpred in type_preds if tpred.split("->")[-1].strip() not in ["_", "[_]"]]
                 print(f"Kept only {len(type_preds)} type predictions for exported function...")
-            else:
+            elif args.use_qualifiers:
                 parts = len(file_obj.ground_truths[func].split("->"))
                 naive_type = " -> ".join(["_"] * parts)
                 print(f"Added {naive_type} to type predictions for local function...")
@@ -987,6 +923,7 @@ def run_tests(args):
     total_ground_truths = defaultdict(int)
     total_num_of_ground_truths_used = 0
     total_num_of_refinemet_types = 0
+    user_confirmed_types = 0
     for filename, file_obj in project_state.files.items():
         given_by_user = 0
         assert isinstance(file_obj, LiquidFile)
@@ -1006,6 +943,7 @@ def run_tests(args):
                         print(f"ground truth: {file_obj.ground_truths[func]}")
                         print(f"prediction {idx+1} : {type_prediction}")
                         total_ground_truths[filename] -= 1
+                        user_confirmed_types += 1
                         break
                 project_state.set_file_func_to_ground()
         total_ground_truths[filename] += sum(file_obj.using_ground_truth.values()) - given_by_user
@@ -1030,10 +968,9 @@ def run_tests(args):
     print("=" * 42)
     print(f"{fixed_progs} / {total_num_of_progs} programs fully annotated correctly with LH types")
     print(f"{total_num_of_ground_truths_used} / {total_num_of_refinemet_types} used the ground truth user type")
+    print(f"{user_confirmed_types} user-confirmed predicted types")
     print(f"{num_of_iterations} loop iterations (i.e. total number of types checked)")
-    # NOTE: batch_size comes from get_starcoder_code_suggestions.py parameter
-    batch_size = 2
-    print(f"{total_llm_calls * args.total_preds // batch_size} llm calls of {batch_size} type predictions")
+    print(f"{total_llm_calls} llm calls of {args.total_preds} type predictions")
 
 
 if __name__ == "__main__":

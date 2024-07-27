@@ -29,12 +29,8 @@ class StarCoderModel():
         if use_finetuned:
             # Best checkpoint on training set
             print("Merging LoRa-finetuned version...")
-            model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/checkpoint-16900")
-            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/final_checkpoint")
-            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/checkpoint-12650")
-            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs_warmup_steps/final_checkpoint")
-            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps/checkpoint-13800")
-            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_no_lh_tutorial_20_epochs_2500_warmup_steps_rank_64_dropout_0_1/checkpoint-13500")
+            model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/starcoder_3b_checkpoints_the_stack_v2_20_epochs_2500_warmup_steps_rank_64_alpha_32_dropout_0_1/checkpoint-27140")
+            # model = PeftModel.from_pretrained(model, "/tmp3/gsakkas/checkpoints_the_stack_20_epochs/checkpoint-16900")
             model = model.merge_and_unload()
 
         self.tokenizer = tokenizer
