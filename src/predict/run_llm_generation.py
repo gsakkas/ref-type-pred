@@ -93,16 +93,16 @@ def get_predictions(cmd_args, llm, cache, tup):
 
 def run_llm_generation(cmd_args):
     if "starcoder" in cmd_args.llm:
-        code_llm = StarCoderModel()
+        code_llm = StarCoderModel(cmd_args.use_finetuned)
     elif "codellama" in cmd_args.llm:
-        code_llm = CodeLlamaModel()
+        code_llm = CodeLlamaModel(cmd_args.use_finetuned)
     else:
         code_llm = None
     done = 0
     failed = 0
     dataset = []
     avg_run_time = 0.0
-    repair_times = []
+    prediction_times = []
     dataset_part_file = join(cmd_args.data_dir, cmd_args.data_file)
     if exists(dataset_part_file):
         with open(dataset_part_file, "r", encoding="utf-8") as in_file:
@@ -128,21 +128,21 @@ def run_llm_generation(cmd_args):
             if cmd_args.create_cache_only:
                 if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
-                    print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
+                    print(f"# Mean prediction time: {avg_run_time / done:.2f} sec")
                 continue
 
-            repair_times.append(run_time)
+            prediction_times.append(run_time)
         except TimeoutError as _:
             print('Timer expired!')
             failed += 1
             if cmd_args.create_cache_only:
                 if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
-                    print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
+                    print(f"# Mean prediction time: {avg_run_time / done:.2f} sec")
                 continue
             # run_time = TIMEOUT
             # avg_run_time += run_time
-            # repair_times.append(run_time)
+            # prediction_times.append(run_time)
         except Exception as err:
             print("WHY here?!", str(err))
             traceback.print_tb(err.__traceback__)
@@ -150,11 +150,11 @@ def run_llm_generation(cmd_args):
             if cmd_args.create_cache_only:
                 if (failed + done) % 1 == 0:
                     print(f"### Dataset size: {done} / {failed + done}")
-                    print(f"# Mean repair time: {avg_run_time / done:.2f} sec")
+                    print(f"# Mean prediction time: {avg_run_time / done:.2f} sec")
                 continue
             # run_time = TIMEOUT
             # avg_run_time += run_time
-            # repair_times.append(run_time)
+            # prediction_times.append(run_time)
 
     if cmd_args.update_cache or cmd_args.create_cache_only:
         with open(cache_file, "w", encoding="utf-8") as cf:
@@ -170,8 +170,10 @@ def get_args():
                         help='total repairs to generate with the model (default: 10)')
     _parser.add_argument('-c', '--max_cost', default=1, type=int,
                         help='max repair cost (default: 1)')
-    _parser.add_argument('--llm', default="codex",
-                        help='llm to use for code generation {codex, incoder-1B, -6B, codegen25-7B, starcoder} (default: codex)')
+    _parser.add_argument('--llm', default="starcoder-3B",
+                        help='llm to use for code generation {starcoder-3B, codellama-7b} (default: starcoder-3B)')
+    _parser.add_argument('--use_finetuned', action='store_true',
+                        help='use finetuned LLM (default: False)')
     _parser.add_argument('--cache_file', default="",
                         help='use the given file for prompt -> generation cache (default: no cache)')
     _parser.add_argument('--update_cache', action='store_true',

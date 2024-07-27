@@ -24,5 +24,5 @@ export PATH=$PATH:/home/gsakkas/usr/bin # for local Z3 installation
 export OPENAI_KEY="dummy"
 export PYTHONPATH=$PYTHONPATH:/home/gsakkas/ref-type-pred/src
 huggingface-cli login --token dummy # TODO: change dummy with actual token
-# CUDA_VISIBLE_DEVICES=0 python run_llm_generation.py --llm starcoderbase-3B --data_file lh_test_set_final_raw_v3.jsonl --total_repairs 20 --cache_file lh_starcoderbase_3B_finetuned_with_the_stack_chkpnt_20000_cache_raw_v3.json --create_cache_only
+CUDA_VISIBLE_DEVICES=0 python src/predict/run_llm_generation.py --llm starcoderbase-3B --use_finetuned --data_file benchmarks/lh_test_set_final_with_haskell_types_and_tests_v3.jsonl --total_repairs 50 --cache_file benchmarks/lh_finetuned_v2_starcoder_3b_cache_with_haskell_types_and_tests_v3.json --create_cache_only
 CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_test_set_with_repairs.py --total_preds 10 --max_preds 50 > results/lh_dependency_tests_starcoderbase_3b_test.txt
