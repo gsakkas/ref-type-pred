@@ -167,9 +167,10 @@ llm_preds_per_func = defaultdict(int)
 samples_per_exer = defaultdict(int)
 llm_preds_per_exer = defaultdict(int)
 func_pass_at_1 = {}
+func_pass_at_5 = {}
 func_pass_at_10 = {}
+func_pass_at_20 = {}
 func_pass_at_50 = {}
-path_to_testset = "../liquidhaskell/lh_exercises/correct_baselines"
 for key in sorted(cache.keys()):
     all_progs += 1
     func = key.split("--")[-1]
@@ -180,7 +181,7 @@ for key in sorted(cache.keys()):
     samples_per_exer[exercise] += 1
     bfile = key.split("--")[0].split(".hs")[0].split("/")[-1].replace("flycheck_", "")
     fix_prog = ""
-    with open(join(path_to_testset, bfile + "_correct.hs"), "r", encoding="utf-8") as good_fin:
+    with open(join(args.data_dir, "correct_baselines", bfile + "_correct.hs"), "r", encoding="utf-8") as good_fin:
         fix_prog = good_fin.read()
     ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)
     solved = False
@@ -243,13 +244,17 @@ for key in sorted(cache.keys()):
     else:
         print("--> UNSAFE")
     func_pass_at_1[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 1) * 100
+    func_pass_at_5[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 5) * 100
     func_pass_at_10[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 10) * 100
+    func_pass_at_20[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 20) * 100
     func_pass_at_50[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 50) * 100
-    print(f"  - pass@1  = {func_pass_at_1[key]:.2f}")
-    print(f"  - pass@10 = {func_pass_at_10[key]:.2f}")
-    print(f"  - pass@50 = {func_pass_at_50[key]:.2f}")
-    print(f"{llm_preds_per_func[key]} / {samples_per_func[key]} llm type predictions")
-    print(f"{llm_preds_per_func[key] * 100 / samples_per_func[key]:.2f}% func predictions accuracy")
+    print(f"  - pass@1  = {func_pass_at_1[key]:.2f}%")
+    print(f"  - pass@5  = {func_pass_at_5[key]:.2f}%")
+    print(f"  - pass@10 = {func_pass_at_10[key]:.2f}%")
+    print(f"  - pass@20 = {func_pass_at_20[key]:.2f}%")
+    print(f"  - pass@50 = {func_pass_at_50[key]:.2f}%")
+    print(f"{llm_preds_per_func[key]} / {samples_per_func[key]} correct llm type predictions")
+    print(f"{llm_preds_per_func[key] * 100 / samples_per_func[key]:.2f}% type prediction accuracy")
     print("--------------------------------------", flush=True)
     print("--------------------------------------", flush=True)
     print("--------------------------------------", flush=True)
@@ -257,22 +262,24 @@ for key in sorted(cache.keys()):
 
 print("============================================================")
 print("============================================================")
-print(f"{fixed_progs} / {all_progs} llm type predictions")
-print(f"{fixed_progs * 100 / all_progs:.2f}% llm accuracy")
-print(f"avg. pass@1  = {sum(func_pass_at_1.values()) / len(func_pass_at_1):.2f}% llm accuracy")
-print(f"avg. pass@10  = {sum(func_pass_at_10.values()) / len(func_pass_at_10):.2f}% llm accuracy")
-print(f"avg. pass@50  = {sum(func_pass_at_50.values()) / len(func_pass_at_50):.2f}% llm accuracy")
+print(f"{fixed_progs} / {all_progs} total correct llm type predictions")
+print(f"{fixed_progs * 100 / all_progs:.2f}% accuracy")
+print(f"avg. pass@1   = {sum(func_pass_at_1.values()) / len(func_pass_at_1):.2f}%")
+print(f"avg. pass@5   = {sum(func_pass_at_5.values()) / len(func_pass_at_5):.2f}%")
+print(f"avg. pass@10  = {sum(func_pass_at_10.values()) / len(func_pass_at_10):.2f}%")
+print(f"avg. pass@20  = {sum(func_pass_at_20.values()) / len(func_pass_at_20):.2f}%")
+print(f"avg. pass@50  = {sum(func_pass_at_50.values()) / len(func_pass_at_50):.2f}%")
 print("============================================================")
 print("============================================================")
 for key in [0, 1, 2]:
     print("------------------------------------------------------------")
     print(f">>> {diffsToStr[key]} difficulty")
-    print(f"{llm_preds_per_difficulty[key]} / {samples_per_difficulty[key]} llm type predictions")
+    print(f"{llm_preds_per_difficulty[key]} / {samples_per_difficulty[key]} correct llm type predictions")
     print(f"{llm_preds_per_difficulty[key] * 100 / samples_per_difficulty[key]:.2f}% accuracy")
 print("============================================================")
 print("============================================================")
 for key in sorted(llm_preds_per_exer.keys()):
     print("------------------------------------------------------------")
     print(f">>> Chapter {key[2:]}")
-    print(f"{llm_preds_per_exer[key]} / {samples_per_exer[key]} llm type predictions")
+    print(f"{llm_preds_per_exer[key]} / {samples_per_exer[key]} correct llm type predictions")
     print(f"{llm_preds_per_exer[key] * 100 / samples_per_exer[key]:.2f}% accuracy")
