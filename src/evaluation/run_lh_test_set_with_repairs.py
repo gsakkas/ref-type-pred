@@ -186,7 +186,7 @@ for key in sorted(cache.keys()):
     solved = False
     seen_preds = {}
     for llm_pred in cache[key]:
-        with open(join(path_to_testset, bfile + "_llm.hs"), "w", encoding="utf-8") as llm_fin:
+        with open(join(args.data_dir, bfile + "_llm.hs"), "w", encoding="utf-8") as llm_fin:
             if "@-}" in llm_pred:
                 llm_pred = llm_pred.split("@-}")[0].rstrip()
             if "\\" in llm_pred:
