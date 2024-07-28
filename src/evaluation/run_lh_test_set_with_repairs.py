@@ -4,10 +4,9 @@ import json
 import re
 import subprocess as subp
 import numpy as np
+from collections import defaultdict
 
 
-KEEP_AND_COMMENT_NON_CODE = False
-USE_BUGGY_LINES_AS_COMMENT = False
 MASK_ONLY_POST_COND = False
 
 def get_args():
@@ -163,25 +162,30 @@ fixed_progs = 0
 all_progs = 0
 samples_per_difficulty = {k: 0 for k in [0, 1, 2]}
 llm_preds_per_difficulty = {k: 0 for k in [0, 1, 2]}
-samples_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
-llm_preds_per_func = {k.split("--")[-1]: 0 for k in set(cache.keys())}
-samples_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
-llm_preds_per_exer = {k.split("-")[0]: 0 for k in set(cache.keys())}
+samples_per_func = defaultdict(int)
+llm_preds_per_func = defaultdict(int)
+samples_per_exer = defaultdict(int)
+llm_preds_per_exer = defaultdict(int)
+func_pass_at_1 = {}
+func_pass_at_10 = {}
+func_pass_at_50 = {}
 path_to_testset = "../liquidhaskell/lh_exercises/correct_baselines"
-for k in list(cache.keys()):
+for key in sorted(cache.keys()):
     all_progs += 1
-    func = k.split("--")[-1]
-    exercise = k.split("-")[0]
-    print(f"Solving {k.split('--')[0]} ({func})...", flush=True)
-    samples_per_difficulty[difficulties[k]] += 1
-    samples_per_func[func] += 1
+    func = key.split("--")[-1]
+    exercise = key.split("-")[0]
+    print(f"Solving {key.split('--')[0]} ({func})...", flush=True)
+    samples_per_difficulty[difficulties[key]] += 1
+    samples_per_func[key] += len(cache[key])
     samples_per_exer[exercise] += 1
-    bfile = k.split("--")[0].split(".hs")[0].split("/")[-1].replace("flycheck_", "")
+    bfile = key.split("--")[0].split(".hs")[0].split("/")[-1].replace("flycheck_", "")
     fix_prog = ""
     with open(join(path_to_testset, bfile + "_correct.hs"), "r", encoding="utf-8") as good_fin:
         fix_prog = good_fin.read()
-    seen_preds = set()
-    for llm_pred in cache[k]:
+    ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)
+    solved = False
+    seen_preds = {}
+    for llm_pred in cache[key]:
         with open(join(path_to_testset, bfile + "_llm.hs"), "w", encoding="utf-8") as llm_fin:
             if "@-}" in llm_pred:
                 llm_pred = llm_pred.split("@-}")[0].rstrip()
@@ -190,19 +194,13 @@ for k in list(cache.keys()):
             if "<file_sep>" in llm_pred:
                 llm_pred = llm_pred.split("<file_sep>")[0]
             if llm_pred in seen_preds:
+                if seen_preds[llm_pred]:
+                    llm_preds_per_func[key] += 1
                 continue
-            seen_preds.add(llm_pred)
             if args.print_preds:
                 print("--------------------------------------")
                 print(f"{{-@ {func} :: {llm_pred} @-}}")
                 print("--------------------------------------")
-
-            ground_truth = re.findall(r"{-@\s*?" + func + r"\s*?::([\s\S]*?)@-}", fix_prog)
-            # TODO: Just a random check, cause LH crashes for too long types
-            if len(llm_pred) > len(ground_truth[0]) + 32:
-                if args.print_preds:
-                    print("UNSAFE", flush=True)
-                continue
 
             llm_prog = fix_prog
             if MASK_ONLY_POST_COND:
@@ -214,28 +212,46 @@ for k in list(cache.keys()):
             llm_fin.write(llm_prog)
             # print(llm_prog, flush=True)
 
-        cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
-        cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
-        cmds += f"cd {args.data_dir}; "
-        cmds += f"rm {bfile}_llm.hi; "
-        cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {bfile}_llm.hs"
-        test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
-        result = test_output.stdout.decode('utf-8').strip()
-        if result != "" and "UNSAFE" not in result and "SAFE" in result:
-            fixed_progs += 1
-            llm_preds_per_difficulty[difficulties[k]] += 1
-            llm_preds_per_func[func] += 1
-            llm_preds_per_exer[exercise] += 1
+        # TODO: Just a random check, cause LH crashes for too long types
+        if len(llm_pred) > len(ground_truth[0]) + 64:
+            seen_preds[llm_pred] = False
             if args.print_preds:
-                print("SAFE", flush=True)
-            break
-        if args.print_preds:
-            print("UNSAFE", flush=True)
+                print("UNSAFE", flush=True)
+        else:
+            cmds = "source /home/gsakkas/.ghcup/env; " # for local Haskell installation
+            cmds += "export PATH=$PATH:/home/gsakkas/usr/bin; " # for local Z3 installation
+            cmds += f"cd {args.data_dir}; "
+            cmds += f"rm {bfile}_llm.hi; "
+            cmds += f"stack exec ghc -- -fplugin=LiquidHaskell {bfile}_llm.hs"
+            test_output = subp.run(cmds, shell=True, check=False, capture_output=True)
+            result = test_output.stdout.decode('utf-8').strip()
+            if result != "" and "UNSAFE" not in result and "SAFE" in result:
+                seen_preds[llm_pred] = solved = True
+                llm_preds_per_func[key] += 1
+                if args.print_preds:
+                    print("SAFE", flush=True)
+            else:
+                seen_preds[llm_pred] = False
+                if args.print_preds:
+                    print("UNSAFE", flush=True)
     print(f"{len(seen_preds)} unique preds", flush=True)
-    if llm_preds_per_func[func] > 0:
+    if solved:
+        fixed_progs += 1
+        llm_preds_per_difficulty[difficulties[key]] += 1
+        llm_preds_per_exer[exercise] += 1
         print("--> SAFE")
     else:
         print("--> UNSAFE")
+    func_pass_at_1[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 1) * 100
+    func_pass_at_10[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 10) * 100
+    func_pass_at_50[key] = pass_at_k(samples_per_func[key], llm_preds_per_func[key], 50) * 100
+    print(f"  - pass@1  = {func_pass_at_1[key]:.2f}")
+    print(f"  - pass@10 = {func_pass_at_10[key]:.2f}")
+    print(f"  - pass@50 = {func_pass_at_50[key]:.2f}")
+    print(f"{llm_preds_per_func[key]} / {samples_per_func[key]} llm type predictions")
+    print(f"{llm_preds_per_func[key] * 100 / samples_per_func[key]:.2f}% func predictions accuracy")
+    print("--------------------------------------", flush=True)
+    print("--------------------------------------", flush=True)
     print("--------------------------------------", flush=True)
 
 
@@ -243,24 +259,20 @@ print("============================================================")
 print("============================================================")
 print(f"{fixed_progs} / {all_progs} llm type predictions")
 print(f"{fixed_progs * 100 / all_progs:.2f}% llm accuracy")
+print(f"avg. pass@1  = {sum(func_pass_at_1.values()) / len(func_pass_at_1):.2f}% llm accuracy")
+print(f"avg. pass@10  = {sum(func_pass_at_10.values()) / len(func_pass_at_10):.2f}% llm accuracy")
+print(f"avg. pass@50  = {sum(func_pass_at_50.values()) / len(func_pass_at_50):.2f}% llm accuracy")
 print("============================================================")
 print("============================================================")
-for k in [0, 1, 2]:
+for key in [0, 1, 2]:
     print("------------------------------------------------------------")
-    print(f">>> {diffsToStr[k]} difficulty")
-    print(f"{llm_preds_per_difficulty[k]} / {samples_per_difficulty[k]} llm type predictions")
-    print(f"{llm_preds_per_difficulty[k] * 100 / samples_per_difficulty[k]:.2f}% accuracy")
+    print(f">>> {diffsToStr[key]} difficulty")
+    print(f"{llm_preds_per_difficulty[key]} / {samples_per_difficulty[key]} llm type predictions")
+    print(f"{llm_preds_per_difficulty[key] * 100 / samples_per_difficulty[key]:.2f}% accuracy")
 print("============================================================")
 print("============================================================")
-for k in sorted(llm_preds_per_func.keys()):
+for key in sorted(llm_preds_per_exer.keys()):
     print("------------------------------------------------------------")
-    print(f">>> func == `{k}`")
-    print(f"{llm_preds_per_func[k]} / {samples_per_func[k]} llm type predictions")
-    print(f"{llm_preds_per_func[k] * 100 / samples_per_func[k]:.2f}% accuracy")
-print("============================================================")
-print("============================================================")
-for k in sorted(llm_preds_per_exer.keys()):
-    print("------------------------------------------------------------")
-    print(f">>> Chapter {k[2:]}")
-    print(f"{llm_preds_per_exer[k]} / {samples_per_exer[k]} llm type predictions")
-    print(f"{llm_preds_per_exer[k] * 100 / samples_per_exer[k]:.2f}% accuracy")
+    print(f">>> Chapter {key[2:]}")
+    print(f"{llm_preds_per_exer[key]} / {samples_per_exer[key]} llm type predictions")
+    print(f"{llm_preds_per_exer[key] * 100 / samples_per_exer[key]:.2f}% accuracy")
