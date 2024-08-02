@@ -1,0 +1,9 @@
+mkdir results/starcoder_3b
+echo "hsalsa20_test_10_out_of_50_preds_no_finetune_1.txt"
+time CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_repos_with_repairs_using_deps.py --exec_dir ../hsalsa20 --llm starcoder-3b --total_preds 10 --max_preds 50 --cache_file benchmarks/hsalsa20_prompt_cache_baseline_v2_starcoder_3b_temp_0_95_baseline_1.json > results/starcoder_3b/hsalsa20_test_10_out_of_50_preds_no_finetune_1.txt
+echo "hsalsa20_test_10_out_of_50_preds_1.txt"
+time CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_repos_with_repairs_using_deps.py --exec_dir ../hsalsa20 --llm starcoder-3b --use_finetuned --total_preds 10 --max_preds 50 --cache_file benchmarks/hsalsa20_prompt_cache_finetuned_v2_starcoder_3b_temp_0_95_baseline_1.json > results/starcoder_3b/hsalsa20_test_10_out_of_50_preds_1.txt
+echo "hsalsa20_test_10_out_of_50_preds_with_exports_and_locals_checked_and_qualifiers_1.txt"
+time CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_repos_with_repairs_using_deps.py --exec_dir ../hsalsa20 --llm starcoder-3b --use_finetuned --use_qualifiers --total_preds 10 --max_preds 50 --cache_file benchmarks/hsalsa20_prompt_cache_finetuned_v2_starcoder_3b_temp_0_95_qualifiers_1.json > results/starcoder_3b/hsalsa20_test_10_out_of_50_preds_with_exports_and_locals_checked_and_qualifiers_1.txt
+echo "hsalsa20_test_10_out_of_50_preds_with_exports_and_locals_checked_and_qualifiers_and_code_snippets_1.txt"
+time CUDA_VISIBLE_DEVICES=0 python src/evaluation/run_lh_dependency_repos_with_repairs_using_deps.py --exec_dir ../hsalsa20 --llm starcoder-3b --use_finetuned --use_qualifiers --use_dependencies_in_prompt --total_preds 10 --max_preds 50 --cache_file benchmarks/hsalsa20_prompt_cache_finetuned_v2_starcoder_3b_temp_0_95_qualifiers_and_code_snippets_1.json > results/starcoder_3b/hsalsa20_test_10_out_of_50_preds_with_exports_and_locals_checked_and_qualifiers_and_code_snippets_1.txt
