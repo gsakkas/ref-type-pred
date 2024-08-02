@@ -63,6 +63,8 @@ export PATH=$PATH:/path/to/usr/bin            # for local Z3 installation
 huggingface-cli login --token "YOUR_HF_TOKEN" # TODO: change YOUR_HF_TOKEN with actual token
 ```
 
+## Evaluation
+
 You will need a [huggingface](https://huggingface.co/) account in order to
 create a *token* and access the LLMs that we used.
 
